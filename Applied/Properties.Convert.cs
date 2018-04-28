@@ -9,6 +9,10 @@ namespace System
     {
         private static object Convert(object value, Type targetType, out bool done)
         {
+            if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                targetType = targetType.GetGenericArguments()[0];
+            }
             if (targetType.IsEnum)
             {
                 try
@@ -24,35 +28,20 @@ namespace System
                     done = true;
                     return value;
                 }
-                catch
-                {
-                    done = false;
-                    return value;
-                }
+                catch { }
             }
             else if (value is IConvertible)
             {
-                if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
-                {
-                    targetType = targetType.GetGenericArguments()[0];
-                }
                 try
                 {
                     value = System.Convert.ChangeType(value, targetType);
                     done = true;
                     return value;
                 }
-                catch
-                {
-                    done = false;
-                    return value;
-                }
+                catch { }
             }
-            else
-            {
-                done = true;
-                return value;
-            }
+            done = false;
+            return value;
         }
     }
 }
