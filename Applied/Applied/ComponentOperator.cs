@@ -14,6 +14,7 @@ namespace System.Applied
     {
         private delegate PropertyInfo PropertyGetter(PropertyDescriptor property);
         private static readonly PropertyGetter propertyGetter;
+        private static readonly Dictionary<Type, Func<object>> defaultMethodDictionary;
         static ComponentOperator()
         {
             try
@@ -30,6 +31,7 @@ namespace System.Applied
             {
                 propertyGetter = new PropertyGetter(p => null);
             }
+            defaultMethodDictionary = new Dictionary<Type, Func<object>>();
         }
         public static PropertyInfo GetPropertyInfo(PropertyDescriptor property)
         {
@@ -157,6 +159,17 @@ namespace System.Applied
                 return LambdaExpression1.Compile();
             }
         }
+        public static Func<object> GetTypedDefaultMethod(Type type)
+        {
+            if (!defaultMethodDictionary.ContainsKey(type))
+            {
+                ConstantExpression DefaultExpression1 = ExpressionExtensions.Default(type);
+                UnaryExpression UnaryExpression1 = Expression.Convert(DefaultExpression1, typeof(object));
+                Expression<Func<object>> LambdaExpression1 = Expression.Lambda<Func<object>>(UnaryExpression1);
+                defaultMethodDictionary.Add(type, LambdaExpression1.Compile());
+            }
+            return defaultMethodDictionary[type];
+        }
     }
     internal static class ExpressionExtensions
     {
@@ -164,6 +177,26 @@ namespace System.Applied
         {
             MethodInfo assign = typeof(Assigner<>).MakeGenericType(left.Type).GetMethod("Assign");
             return Expression.Equal(left, right, false, assign);
+        }
+        public static ConstantExpression Default(Type type)
+        {
+            if (type.IsValueType)
+            {
+                object value;
+                try
+                {
+                    value = Activator.CreateInstance(type);
+                }
+                catch
+                {
+                    value = null;
+                }
+                return Expression.Constant(value, type);
+            }
+            else
+            {
+                return Expression.Constant(null, type);
+            }
         }
         private static class Assigner<T>
         {
