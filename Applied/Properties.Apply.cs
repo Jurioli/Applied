@@ -108,9 +108,17 @@ namespace System
                 if (match.Left.PropertyType != match.Right.PropertyType)
                 {
                     value = Convert(value, match.Left.PropertyType, out done);
+                    if (!done)
+                    {
+                        value = GetTypedNull(match.Left.PropertyType);
+                    }
                 }
                 match.Left.SetValue(source, value);
             }
+        }
+        private static object GetTypedNull(Type type)
+        {
+            return ComponentOperator.GetTypedDefaultMethod(type)();
         }
         public static DataTable Apply<T>(this DataTable source, Func<DataRow, T> getter)
         {

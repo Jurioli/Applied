@@ -24,9 +24,13 @@ namespace System
                     done = true;
                     return value;
                 }
-                catch { }
+                catch
+                {
+                    done = false;
+                    return value;
+                }
             }
-            if (value is IConvertible)
+            else if (value is IConvertible)
             {
                 if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
@@ -38,10 +42,17 @@ namespace System
                     done = true;
                     return value;
                 }
-                catch { }
+                catch
+                {
+                    done = false;
+                    return value;
+                }
             }
-            done = false;
-            return value;
+            else
+            {
+                done = true;
+                return value;
+            }
         }
     }
 }

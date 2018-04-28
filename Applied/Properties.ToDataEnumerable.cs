@@ -50,6 +50,10 @@ namespace System
                 if (match.Right.PropertyType != match.Left.PropertyType)
                 {
                     value = Convert(value, match.Right.PropertyType, out done);
+                    if (!done)
+                    {
+                        value = GetTypedNull(match.Right.PropertyType);
+                    }
                 }
                 match.Right.SetValue(entity, value);
             }
