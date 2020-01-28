@@ -5,16 +5,61 @@ using System.Text;
 using System.Collections;
 using System.ComponentModel;
 using System.Data;
-using System.Applied;
 
 namespace System
 {
     public static partial class Properties
     {
-        public static IEnumerable<Dictionary<string, object>> ToDictionaries<T>(this IEnumerable<T> items)
+        private class DictionaryNecessary<T, TDictionary> : MatchesNecessary<T>
+        {
+            private readonly PropertyDescriptorsInfo _left;
+            private readonly PropertyDescriptorsInfo _right;
+            public DictionaryNecessary()
+            {
+                _left = new PropertyDescriptorsInfo(typeof(TDictionary), PropertyDescriptorKind.Dictionary);
+                _right = new PropertyDescriptorsInfo(typeof(T), this);
+            }
+            public override void LoadProperties(IEnumerable<T> items)
+            {
+                _left.LoadDictionaryProperties();
+                _right.LoadProperties(items);
+            }
+            protected override MatchProperty[] GetReady(IEnumerable<T> items)
+            {
+                return JoinMatches(_left, _right, this, items);
+            }
+        }
+        private static void LoadDictionaryProperties(this PropertyDescriptorsInfo info)
+        {
+            if (TryGetDictionaryValueType(info.Type, out Type valueType))
+            {
+                info.DictionaryValueType = valueType;
+            }
+            info.Properties = new PropertyDescriptor[0];
+        }
+        private static TDictionary ToDictionary<T, TDictionary>(this T item, MatchProperty[] matches)
+            where TDictionary : IDictionary, new()
             where T : class
         {
-            return ToDictionaries<T, Dictionary<string, object>>(items);
+            TDictionary dictionary = new TDictionary();
+            if (item != null)
+            {
+                object value;
+                foreach (MatchProperty match in matches)
+                {
+                    value = match.Right.GetValue(item);
+                    if (match.Left.PropertyType != match.Right.PropertyType)
+                    {
+                        value = Convert(value, match.Left.PropertyType, out bool done);
+                        if (!done)
+                        {
+                            value = GetTypedNull(match.Left.PropertyType);
+                        }
+                    }
+                    match.Left.SetValue(dictionary, value);
+                }
+            }
+            return dictionary;
         }
         public static IEnumerable<TDictionary> ToDictionaries<T, TDictionary>(this IEnumerable<T> items)
             where TDictionary : IDictionary, new()
@@ -22,28 +67,17 @@ namespace System
         {
             if (items != null)
             {
-                T temp = null;
-                Lazy<MatchProperty[]> matches = new Lazy<MatchProperty[]>(() =>
+                DictionaryNecessary<T, TDictionary> necessary = new DictionaryNecessary<T, TDictionary>();
+                foreach (T item in necessary.Each(items))
                 {
-                    Type type = typeof(T);
-                    return (from a in GetProperties(type, type.IsNeedGetter() ? new Lazy(() => temp) : null)
-                            select new MatchProperty()
-                            {
-                                Right = a,
-                                Left = new DictionaryPropertyDescriptor(a.Name, a.PropertyType)
-                            }).ToArray();
-                });
-                foreach (T item in items)
-                {
-                    temp = item;
-                    TDictionary dictionary = new TDictionary();
-                    foreach (MatchProperty match in matches.Value)
-                    {
-                        match.Left.SetValue(dictionary, match.Right.GetValue(item));
-                    }
-                    yield return dictionary;
+                    yield return item.ToDictionary<T, TDictionary>(necessary.Value);
                 }
             }
+        }
+        public static IEnumerable<Dictionary<string, object>> ToDictionaries<T>(this IEnumerable<T> items)
+            where T : class
+        {
+            return ToDictionaries<T, Dictionary<string, object>>(items);
         }
         public static IEnumerable<Dictionary<string, object>> ToDictionaries(this DataTable table)
         {
@@ -52,7 +86,7 @@ namespace System
         public static IEnumerable<TDictionary> ToDictionaries<TDictionary>(this DataTable table)
             where TDictionary : IDictionary, new()
         {
-            return ToDictionaries<DataRow, TDictionary>(table != null ? table.Select() : null);
+            return ToDictionaries<DataRow, TDictionary>(table?.AsEnumerable());
         }
     }
 }

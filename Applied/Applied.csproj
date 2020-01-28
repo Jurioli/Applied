@@ -49,11 +49,16 @@
   <ItemGroup>
     <Compile Include="Applied\ComponentOperator.cs" />
     <Compile Include="Applied\Lazy.cs" />
+    <Compile Include="Linq\LambdaComparer.cs" />
     <Compile Include="ComponentModel\ComponentPropertyDescriptor.cs" />
     <Compile Include="ComponentModel\DataRowPropertyDescriptor.cs" />
     <Compile Include="ComponentModel\DictionaryPropertyDescriptor.cs" />
+    <Compile Include="Linq\LambdaEqualityComparer.cs" />
     <Compile Include="Properties.Apply.cs" />
     <Compile Include="Properties.Convert.cs" />
+    <Compile Include="Properties.JoinMatches.cs" />
+    <Compile Include="Properties.Necessary.cs" />
+    <Compile Include="Properties.PropertyDescriptorsInfo.cs" />
     <Compile Include="Properties.GetMatchType.cs" />
     <Compile Include="Properties.GetProperties.cs" />
     <Compile Include="Properties.ToDataEnumerable.cs" />
@@ -63,6 +68,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\.editorconfig">
+      <Link>.editorconfig</Link>
+    </None>
     <None Include="Applied.pfx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

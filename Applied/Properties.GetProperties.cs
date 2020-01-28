@@ -5,65 +5,15 @@ using System.Text;
 using System.Collections;
 using System.ComponentModel;
 using System.Data;
-using System.Applied;
 
 namespace System
 {
     public static partial class Properties
     {
         private static readonly Dictionary<string, PropertyDescriptor[]> _typeDescriptorDictionary = new Dictionary<string, PropertyDescriptor[]>();
-        private static PropertyDescriptor[] GetProperties(Type componentType, Lazy componentGetter)
-        {
-            string key;
-            return GetProperties(componentType, componentGetter, out key).Value;
-        }
-        private static Lazy<PropertyDescriptor[]> GetProperties(Type componentType, Lazy componentGetter, out string key)
-        {
-            if (componentType == typeof(DataRow))
-            {
-                key = null;
-                return new Lazy<PropertyDescriptor[]>(() => (from a in ((DataRow)componentGetter.Value).Table.Columns.Cast<DataColumn>()
-                                                             select new DataRowPropertyDescriptor(a)).ToArray());
-            }
-            if (typeof(IDictionary).IsAssignableFrom(componentType))
-            {
-                try
-                {
-                    IDictionary dictionary = (IDictionary)componentGetter.Value;
-                    string[] keys = dictionary.Keys.Cast<string>().ToArray();
-                    key = null;
-                    return new Lazy<PropertyDescriptor[]>(() => (from a in keys
-                                                                 select new DictionaryPropertyDescriptor(a, dictionary[a] != null ? dictionary[a].GetType() : typeof(object))).ToArray());
-                }
-                catch (InvalidCastException) { }
-            }
-            string fullName = componentType.FullName + ";" + componentType.Assembly.FullName;
-            key = fullName;
-            return new Lazy<PropertyDescriptor[]>(() =>
-            {
-                PropertyDescriptor[] result;
-                if (!_typeDescriptorDictionary.TryGetValue(fullName, out result))
-                {
-                    lock (_typeDescriptorDictionary)
-                    {
-                        if (!_typeDescriptorDictionary.TryGetValue(fullName, out result))
-                        {
-                            result = TypeDescriptor.GetProperties(componentType).Cast<PropertyDescriptor>().Select(a => new ComponentPropertyDescriptor(a)).ToArray();
-                            _typeDescriptorDictionary.Add(fullName, result);
-                        }
-                    }
-                }
-                return result;
-            });
-        }
-        private static bool IsNeedGetter(this Type componentType)
-        {
-            return componentType == typeof(DataRow) || typeof(IDictionary).IsAssignableFrom(componentType);
-        }
         public static PropertyDescriptorCollection GetProperties(this DataTable table)
         {
-            return new PropertyDescriptorCollection((from a in table.Columns.Cast<DataColumn>()
-                                                     select new DataRowPropertyDescriptor(a)).ToArray());
+            return new PropertyDescriptorCollection(GetPropertyDescriptors(table));
         }
         public static PropertyDescriptorCollection GetProperties<TDictionary>(this IEnumerable<TDictionary> dictionaries)
             where TDictionary : IDictionary
@@ -72,23 +22,112 @@ namespace System
             {
                 try
                 {
-                    dictionaries = dictionaries.Take(16).ToArray();
-                    string[] keys = dictionaries.SelectMany(d => d.Keys.Cast<string>()).Distinct().ToArray();
-                    Dictionary<string, Type> keysDictionary = keys.ToDictionary(a => a, a =>
+                    TDictionary[] items = dictionaries.Take(16).ToArray();
+                    string[] keys = items.SelectMany(d => d.Keys.Cast<string>()).Distinct().ToArray();
+                    if (TryGetDictionaryValueType(typeof(TDictionary), out Type valueType))
                     {
-                        TDictionary dictionary = dictionaries.Where(d => d.Contains(a) && d[a] != null).FirstOrDefault();
-                        if (dictionary != null)
-                        {
-                            return dictionary[a].GetType();
-                        }
-                        return typeof(object);
-                    });
-                    return new PropertyDescriptorCollection((from a in keysDictionary
-                                                             select new DictionaryPropertyDescriptor(a.Key, a.Value)).ToArray());
+                        return new PropertyDescriptorCollection(GetPropertyDescriptors(keys, valueType));
+                    }
+                    else
+                    {
+                        return new PropertyDescriptorCollection(GetPropertyDescriptors(keys, items));
+                    }
                 }
                 catch (InvalidCastException) { }
             }
             return PropertyDescriptorCollection.Empty;
+        }
+        private static PropertyDescriptor[] GetPropertyDescriptors(DataRow dataRow)
+        {
+            return GetPropertyDescriptors(dataRow.Table);
+        }
+        private static PropertyDescriptor[] GetPropertyDescriptors(DataTable dataTable)
+        {
+            return GetDataRowPropertyDescriptors(dataTable).ToArray();
+        }
+        private static IEnumerable<DataRowPropertyDescriptor> GetDataRowPropertyDescriptors(DataTable dataTable)
+        {
+            foreach (DataColumn dataColumn in dataTable.Columns)
+            {
+                yield return new DataRowPropertyDescriptor(dataColumn);
+            }
+        }
+        private static PropertyDescriptor[] GetPropertyDescriptors(string[] keys, Type valueType)
+        {
+            return GetDictionaryPropertyDescriptors(keys, valueType).ToArray();
+        }
+        private static IEnumerable<DictionaryPropertyDescriptor> GetDictionaryPropertyDescriptors(string[] keys, Type valueType)
+        {
+            foreach (string key in keys)
+            {
+                yield return new DictionaryPropertyDescriptor(key, valueType);
+            }
+        }
+        private static PropertyDescriptor[] GetPropertyDescriptors<TDictionary>(string[] keys, TDictionary[] dictionaries)
+            where TDictionary : IDictionary
+        {
+            return GetDictionaryPropertyDescriptors(keys, dictionaries).ToArray();
+        }
+        private static IEnumerable<DictionaryPropertyDescriptor> GetDictionaryPropertyDescriptors<TDictionary>(string[] keys, TDictionary[] dictionaries)
+            where TDictionary : IDictionary
+        {
+            foreach (string key in keys)
+            {
+                Type valueType = GetDictionaryPropertyDescriptorValueType(key, dictionaries);
+                yield return new DictionaryPropertyDescriptor(key, valueType);
+            }
+        }
+        private static Type GetDictionaryPropertyDescriptorValueType<TDictionary>(string key, TDictionary[] dictionaries)
+            where TDictionary : IDictionary
+        {
+            foreach (TDictionary dictionary in dictionaries)
+            {
+                if (dictionary.Contains(key))
+                {
+                    object value = dictionary[key];
+                    if (value != null)
+                    {
+                        return value.GetType();
+                    }
+                }
+            }
+            return typeof(object);
+        }
+        private static PropertyDescriptor[] GetPropertyDescriptors(Type componentType)
+        {
+            string fullName = componentType.GetFullName();
+            if (!_typeDescriptorDictionary.TryGetValue(fullName, out PropertyDescriptor[] result))
+            {
+                lock (_typeDescriptorDictionary)
+                {
+                    if (!_typeDescriptorDictionary.TryGetValue(fullName, out result))
+                    {
+                        result = GetEntityPropertyDescriptors(componentType).ToArray();
+                        _typeDescriptorDictionary.Add(fullName, result);
+                    }
+                }
+            }
+            return result;
+        }
+        private static IEnumerable<ComponentPropertyDescriptor> GetEntityPropertyDescriptors(Type componentType)
+        {
+            foreach (PropertyDescriptor property in TypeDescriptor.GetProperties(componentType))
+            {
+                yield return new ComponentPropertyDescriptor(property);
+            }
+        }
+        private static bool TryGetDictionaryValueType(Type dictionaryType, out Type valueType)
+        {
+            foreach (Type type in dictionaryType.GetInterfaces())
+            {
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                {
+                    valueType = type.GetGenericArguments()[1];
+                    return valueType != typeof(object);
+                }
+            }
+            valueType = null;
+            return false;
         }
     }
 }

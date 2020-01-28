@@ -5,69 +5,87 @@ using System.Text;
 using System.Collections;
 using System.ComponentModel;
 using System.Data;
-using System.Applied;
 
 namespace System
 {
     public static partial class Properties
     {
+        private class EntityNecessary<TSource, T> : MatchesNecessary<TSource>
+        {
+            private readonly PropertyDescriptorsInfo _left;
+            private readonly PropertyDescriptorsInfo _right;
+            public EntityNecessary()
+            {
+                _left = new PropertyDescriptorsInfo(typeof(T), PropertyDescriptorKind.Class);
+                _right = new PropertyDescriptorsInfo(typeof(TSource), this);
+            }
+            public override void LoadProperties(IEnumerable<TSource> items)
+            {
+                _left.LoadEntityProperties();
+                _right.LoadProperties(items);
+            }
+            protected override MatchProperty[] GetReady(IEnumerable<TSource> items)
+            {
+                return JoinMatches(_left, _right, this, items);
+            }
+        }
+        private static void LoadEntityProperties(this PropertyDescriptorsInfo info)
+        {
+            info.Properties = GetPropertyDescriptors(info.Type);
+        }
+        private static T ToEntity<TSource, T>(this TSource item, MatchProperty[] matches)
+            where T : class, new()
+        {
+            if (item == null)
+            {
+                return null;
+            }
+            T entity = new T();
+            object value;
+            foreach (MatchProperty match in matches)
+            {
+                value = match.Right.GetValue(item);
+                if (match.Left.PropertyType != match.Right.PropertyType)
+                {
+                    value = Convert(value, match.Left.PropertyType, out bool done);
+                    if (!done)
+                    {
+                        value = GetTypedNull(match.Left.PropertyType);
+                    }
+                }
+                match.Left.SetValue(entity, value);
+            }
+            return entity;
+        }
         public static IEnumerable<T> ToDataEnumerable<TSource, T>(this IEnumerable<TSource> items)
             where TSource : class
             where T : class, new()
         {
             if (items != null)
             {
-                TSource temp = null;
-                Lazy<MatchProperty[]> matches = new Lazy<MatchProperty[]>(() =>
+                EntityNecessary<TSource, T> necessary = new EntityNecessary<TSource, T>();
+                foreach (TSource item in necessary.Each(items))
                 {
-                    Type type = typeof(T);
-                    Type sourceType = typeof(TSource);
-                    return (from a in GetProperties(type, type.IsNeedGetter() ? new Lazy(() => new T()) : null)
-                            join b in GetProperties(sourceType, sourceType.IsNeedGetter() ? new Lazy(() => temp) : null) on new { Name = a.Name, Type = GetMatchType(a.PropertyType) } equals new { Name = b.Name, Type = GetMatchType(b.PropertyType) }
-                            where a.IsReadOnly == false
-                            select new MatchProperty()
-                            {
-                                Right = a,
-                                Left = b
-                            }).ToArray();
-                });
-                foreach (TSource a in items)
-                {
-                    temp = a;
-                    yield return ToEntity<TSource, T>(a, matches.Value);
+                    yield return item.ToEntity<TSource, T>(necessary.Value);
                 }
             }
-        }
-        private static T ToEntity<TSource, T>(this TSource item, MatchProperty[] matches)
-            where T : class, new()
-        {
-            T entity = new T();
-            object value;
-            bool done;
-            foreach (MatchProperty match in matches)
-            {
-                value = match.Left.GetValue(item);
-                if (match.Right.PropertyType != match.Left.PropertyType)
-                {
-                    value = Convert(value, match.Right.PropertyType, out done);
-                    if (!done)
-                    {
-                        value = GetTypedNull(match.Right.PropertyType);
-                    }
-                }
-                match.Right.SetValue(entity, value);
-            }
-            return entity;
         }
         public static IEnumerable<T> ToDataEnumerable<T>(this IEnumerable<Dictionary<string, object>> dictionaries)
             where T : class, new()
         {
             return ToDataEnumerable<Dictionary<string, object>, T>(dictionaries);
         }
+        private static IEnumerable<DataRow> AsEnumerable(this DataTable table)
+        {
+            foreach (DataRow row in table.Rows)
+            {
+                yield return row;
+            }
+        }
         public static IEnumerable<T> ToDataEnumerable<T>(this DataTable table)
             where T : class, new()
         {
-            return ToDataEnumerable<DataRow, T>(table != null ? table.Select() : null);
+            return ToDataEnumerable<DataRow, T>(table?.AsEnumerable());
         }
     }
 }

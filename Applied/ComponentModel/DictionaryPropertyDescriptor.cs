@@ -9,8 +9,8 @@ namespace System.ComponentModel
 {
     internal class DictionaryPropertyDescriptor : PropertyDescriptor
     {
-        private string _key;
-        private Type _type;
+        private readonly string _key;
+        private readonly Type _type;
         public override Type ComponentType
         {
             get

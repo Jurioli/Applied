@@ -2,112 +2,40 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.ComponentModel;
 using System.Data;
-using System.Collections;
-using System.Applied;
 
 namespace System
 {
     public static partial class Properties
     {
-        private static readonly Dictionary<string, MatchProperty[]> _matchesDictionary = new Dictionary<string, MatchProperty[]>();
-        private static MatchProperty[] GetMatches(Type left, Lazy leftGetter, Type right, Lazy rightGetter)
+        private class ApplyNecessary<TSource, T> : MatchesNecessary<ItemValuePair<TSource, T>> where TSource : class
         {
-            string leftKey, rightKey;
-            Lazy<PropertyDescriptor[]> rightProperties = GetProperties(right, rightGetter, out rightKey);
-            Lazy<PropertyDescriptor[]> leftProperties = GetProperties(left, leftGetter, out leftKey);
-            if (leftKey != null && rightKey != null)
+            private readonly PropertyDescriptorsInfo _left;
+            private readonly PropertyDescriptorsInfo _right;
+            public ApplyNecessary()
             {
-                string key = leftKey + "#" + rightKey;
-                MatchProperty[] matches;
-                if (!_matchesDictionary.TryGetValue(key, out matches))
-                {
-                    lock (_matchesDictionary)
-                    {
-                        if (!_matchesDictionary.TryGetValue(key, out matches))
-                        {
-                            matches = (from a in rightProperties.Value
-                                       join b in leftProperties.Value on new { Name = a.Name, Type = GetMatchType(a.PropertyType) } equals new { Name = b.Name, Type = GetMatchType(b.PropertyType) }
-                                       where b.IsReadOnly == false
-                                       select new MatchProperty() { Left = b, Right = a }).ToArray();
-                            _matchesDictionary.Add(key, matches);
-                        }
-                    }
-                }
-                return matches;
+                _left = new PropertyDescriptorsInfo(typeof(TSource), this);
+                _right = new PropertyDescriptorsInfo(typeof(T), this);
             }
-            else
+            public override void LoadProperties(IEnumerable<ItemValuePair<TSource, T>> items)
             {
-                if (typeof(IDictionary).IsAssignableFrom(left))
-                {
-                    List<string> list = leftProperties.Value.Select(a => a.Name).ToList();
-                    PropertyDescriptor[] newLeftProperties = leftProperties.Value.Concat((from a in rightProperties.Value
-                                                                                          where list.Contains(a.Name) == false
-                                                                                          select new DictionaryPropertyDescriptor(a.Name, a.PropertyType)).ToArray()).ToArray();
-                    return (from a in rightProperties.Value
-                            join b in newLeftProperties on new { Name = a.Name, Type = GetMatchType(a.PropertyType) } equals new { Name = b.Name, Type = GetMatchType(b.PropertyType) }
-                            where b.IsReadOnly == false
-                            select new MatchProperty() { Left = b, Right = a }).ToArray();
-                }
-                return (from a in rightProperties.Value
-                        join b in leftProperties.Value on new { Name = a.Name, Type = GetMatchType(a.PropertyType) } equals new { Name = b.Name, Type = GetMatchType(b.PropertyType) }
-                        where b.IsReadOnly == false
-                        select new MatchProperty() { Left = b, Right = a }).ToArray();
+                _left.LoadProperties(items.Select(a => a.Item));
+                _right.LoadProperties(items.Select(a => a.Value));
             }
-        }
-        public static TSource Apply<TSource, T>(this TSource source, Func<T> getter) where TSource : class
-        {
-            if (source != null)
+            protected override MatchProperty[] GetReady(IEnumerable<ItemValuePair<TSource, T>> items)
             {
-                T value = getter();
-                if (value != null)
-                {
-                    Type left = typeof(TSource);
-                    Type right = value.GetType();
-                    MatchProperty[] matches = GetMatches(left, left.IsNeedGetter() ? new Lazy(() => source) : null
-                        , right, right.IsNeedGetter() ? new Lazy(() => value) : null);
-                    source.Apply(matches, value);
-                    return source;
-                }
+                return JoinMatches(_left, _right, this, items);
             }
-            return source;
-        }
-        public static IEnumerable<TSource> Apply<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
-        {
-            if (source != null)
-            {
-                TSource temp = null;
-                T value = default(T);
-                Lazy<MatchProperty[]> matches = new Lazy<MatchProperty[]>(() =>
-                {
-                    Type left = typeof(TSource);
-                    Type right = typeof(T);
-                    return GetMatches(left, left.IsNeedGetter() ? new Lazy(() => temp) : null
-                        , right, right.IsNeedGetter() ? new Lazy(() => value) : null);
-                });
-                foreach (TSource item in source)
-                {
-                    temp = item;
-                    value = getter(item);
-                    if (value != null)
-                    {
-                        item.Apply(matches.Value, value);
-                    }
-                }
-            }
-            return source;
         }
         private static void Apply(this object source, MatchProperty[] matches, object newValue)
         {
             object value;
-            bool done;
             foreach (MatchProperty match in matches)
             {
                 value = match.Right.GetValue(newValue);
                 if (match.Left.PropertyType != match.Right.PropertyType)
                 {
-                    value = Convert(value, match.Left.PropertyType, out done);
+                    value = Convert(value, match.Left.PropertyType, out bool done);
                     if (!done)
                     {
                         value = GetTypedNull(match.Left.PropertyType);
@@ -116,22 +44,57 @@ namespace System
                 match.Left.SetValue(source, value);
             }
         }
-        private static object GetTypedNull(Type type)
+        private static IEnumerable<ItemValuePair<TSource, T>> GetItemValuePairs<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
         {
-            return ComponentOperator.GetTypedDefaultMethod(type)();
+            foreach (TSource item in source)
+            {
+                if (item != null)
+                {
+                    T value = getter(item);
+                    if (value != null)
+                    {
+                        yield return new ItemValuePair<TSource, T>(item, value);
+                    }
+                }
+            }
+        }
+        public static IEnumerable<TSource> Apply<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
+        {
+            if (source != null)
+            {
+                ApplyNecessary<TSource, T> necessary = new ApplyNecessary<TSource, T>();
+                foreach (ItemValuePair<TSource, T> pair in necessary.Each(source.GetItemValuePairs(getter)))
+                {
+                    pair.Item.Apply(necessary.Value, pair.Value);
+                }
+            }
+            return source;
+        }
+        public static TSource Apply<TSource, T>(this TSource source, Func<T> getter) where TSource : class
+        {
+            if (source != null)
+            {
+                new TSource[] { source }.Apply(a => getter());
+            }
+            return source;
         }
         public static DataTable Apply<T>(this DataTable source, Func<DataRow, T> getter)
         {
             if (source != null)
             {
-                source.Select().Apply(getter);
+                source.AsEnumerable().Apply(getter);
             }
             return source;
         }
-        private class MatchProperty
+        private class ItemValuePair<TSource, T>
         {
-            public PropertyDescriptor Left { get; set; }
-            public PropertyDescriptor Right { get; set; }
+            public TSource Item { get; }
+            public T Value { get; }
+            public ItemValuePair(TSource item, T value)
+            {
+                this.Item = item;
+                this.Value = value;
+            }
         }
     }
 }

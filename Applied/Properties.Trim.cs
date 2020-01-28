@@ -5,64 +5,99 @@ using System.Text;
 using System.ComponentModel;
 using System.Collections;
 using System.Data;
-using System.Applied;
 
 namespace System
 {
     public static partial class Properties
     {
-        public static TSource Trim<TSource>(this TSource source, params char[] trimChars) where TSource : class
+        private class TrimNecessary : Necessary<PropertyDescriptor[]>
         {
-            if (source != null)
+            private readonly PropertyDescriptorsInfo _info;
+            public PropertyDescriptorKind Kind
             {
-                PropertyDescriptor[] properties = null;
-                source.Trim(ref properties, trimChars);
+                get
+                {
+                    return _info.Kind;
+                }
             }
-            return source;
+            public TrimNecessary(Type type)
+            {
+                _info = new PropertyDescriptorsInfo(type, this);
+            }
+            protected override PropertyDescriptor[] GetReady(IEnumerable items)
+            {
+                _info.LoadProperties(items);
+                return GetTrimPropertyDescriptors(_info);
+            }
         }
-        private static PropertyDescriptor[] GetTrimProperties(Type type, Lazy getter)
+        private static PropertyDescriptor[] GetTrimPropertyDescriptors(PropertyDescriptorsInfo info)
         {
-            return GetProperties(type, getter).Where(a => a.PropertyType == typeof(string) && !a.IsReadOnly).ToArray();
+            return GetTrimPropertyDescriptors(info.Properties).ToArray();
         }
-        private static void Trim<TSource>(this TSource source, ref PropertyDescriptor[] properties, params char[] trimChars) where TSource : class
+        private static IEnumerable<PropertyDescriptor> GetTrimPropertyDescriptors(PropertyDescriptor[] properties)
+        {
+            foreach (PropertyDescriptor property in properties)
+            {
+                if (property.PropertyType == typeof(string) && !property.IsReadOnly)
+                {
+                    yield return property;
+                }
+            }
+        }
+        private static void Trim(this object source, PropertyDescriptorKind kind, PropertyDescriptor[] properties, char[] trimChars)
         {
             if (source == null)
             {
                 return;
             }
-            if (source is DataTable)
+            if (source is DataTable dataTable)
             {
-                PropertyDescriptor[] rowProperties = null;
-                foreach (DataRow row in (source as DataTable).Rows)
+                dataTable.AsEnumerable().Trim(typeof(DataRow), trimChars);
+                return;
+            }
+            string value;
+            foreach (PropertyDescriptor property in properties)
+            {
+                value = (string)property.GetValue(source);
+                if (!string.IsNullOrEmpty(value))
                 {
-                    row.Trim(ref rowProperties, trimChars);
+                    property.SetValue(source, value.Trim(trimChars));
                 }
             }
-            else
+            if (kind == PropertyDescriptorKind.Class)
             {
-                if (properties == null)
+                if (source is IEnumerable items)
                 {
-                    Type type = source.GetType();
-                    properties = GetTrimProperties(type, type.IsNeedGetter() ? new Lazy(() => source) : null);
-                }
-                string value;
-                foreach (PropertyDescriptor property in properties)
-                {
-                    value = (string)property.GetValue(source);
-                    if (!string.IsNullOrEmpty(value))
+                    if (TryGetEnumerableType(source.GetType(), out Type elementType))
                     {
-                        property.SetValue(source, value.Trim(trimChars));
-                    }
-                }
-                if (source is IEnumerable)
-                {
-                    PropertyDescriptor[] itemProperties = null;
-                    foreach (object item in (IEnumerable)source)
-                    {
-                        item.Trim(ref itemProperties, trimChars);
+                        items.Trim(elementType, trimChars);
                     }
                 }
             }
+        }
+        private static void Trim(this IEnumerable items, Type elementType, char[] trimChars)
+        {
+            TrimNecessary necessary = new TrimNecessary(elementType);
+            foreach (object item in necessary.Each(items))
+            {
+                item.Trim(necessary.Kind, necessary.Value, trimChars);
+            }
+        }
+        public static TSource Trim<TSource>(this TSource source, params char[] trimChars) where TSource : class
+        {
+            if (source != null)
+            {
+                new TSource[] { source }.Trim(typeof(TSource), trimChars);
+            }
+            return source;
+        }
+        public static DataTable Trim(this DataTable source, params char[] trimChars)
+        {
+            if (source != null)
+            {
+                source.AsEnumerable().Trim(typeof(DataRow), trimChars);
+            }
+            return source;
         }
     }
 }

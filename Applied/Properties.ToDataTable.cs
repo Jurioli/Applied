@@ -2,69 +2,75 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Data;
 using System.ComponentModel;
-using System.Applied;
+using System.Data;
 
 namespace System
 {
     public static partial class Properties
     {
+        private class DataRowNecessary<T> : MatchesNecessary<T>
+        {
+            private readonly DataTable _table;
+            private readonly PropertyDescriptorsInfo _right;
+            private readonly PropertyDescriptorsInfo _left;
+            public DataRowNecessary(DataTable table)
+            {
+                _table = table;
+                _right = new PropertyDescriptorsInfo(typeof(T), this);
+                _left = new PropertyDescriptorsInfo(typeof(DataRow), PropertyDescriptorKind.DataRow);
+            }
+            public override void LoadProperties(IEnumerable<T> items)
+            {
+                _right.LoadProperties(items);
+                _left.LoadDataRowProperties(_table, _right.Properties);
+            }
+            protected override MatchProperty[] GetReady(IEnumerable<T> items)
+            {
+                return JoinMatches(_left, _right, this, items);
+            }
+        }
+        private static void LoadDataRowProperties(this PropertyDescriptorsInfo info, DataTable table, PropertyDescriptor[] properties)
+        {
+            info.Properties = GetDataRowPropertyDescriptors(table, properties).ToArray();
+        }
+        private static IEnumerable<DataRowPropertyDescriptor> GetDataRowPropertyDescriptors(DataTable table, PropertyDescriptor[] properties)
+        {
+            foreach (PropertyDescriptor a in properties)
+            {
+                DataColumn column;
+                try
+                {
+                    column = table.Columns.Add(a.Name, a.PropertyType.GetNullableUnderlyingType());
+                }
+                catch { continue; }
+                yield return new DataRowPropertyDescriptor(column);
+            }
+        }
+        private static void AddDataRow<T>(this DataTable table, T item, MatchProperty[] matches)
+        {
+            DataRow row = table.NewRow();
+            if (item != null)
+            {
+                foreach (MatchProperty match in matches)
+                {
+                    match.Left.SetValue(row, match.Right.GetValue(item));
+                }
+            }
+            table.Rows.Add(row);
+        }
         public static DataTable ToDataTable<T>(this IEnumerable<T> items)
         {
-            if (items == null)
-            {
-                return null;
-            }
             DataTable table = new DataTable();
-            T temp = default(T);
-            Lazy<MatchProperty[]> matches = new Lazy<MatchProperty[]>(() =>
+            if (items != null)
             {
-                Type type = typeof(T);
-                return (from a in GetProperties(type, type.IsNeedGetter() ? new Lazy(() => temp) : null)
-                        where TryAddColumn(table, a)
-                        select new MatchProperty()
-                        {
-                            Right = a,
-                            Left = new DataRowPropertyDescriptor(table.Columns[a.Name])
-                        }).ToArray();
-            });
-            DataRow row = null;
-            foreach (T item in items)
-            {
-                temp = item;
-                if (matches.IsValueCreated)
+                DataRowNecessary<T> necessary = new DataRowNecessary<T>(table);
+                foreach (T item in necessary.Each(items))
                 {
-                    row = table.NewRow();
-                    foreach (MatchProperty match in matches.Value)
-                    {
-                        match.Left.SetValue(row, match.Right.GetValue(item));
-                    }
+                    table.AddDataRow(item, necessary.Value);
                 }
-                else
-                {
-                    MatchProperty[] m = matches.Value;
-                    row = table.NewRow();
-                    foreach (MatchProperty match in m)
-                    {
-                        match.Left.SetValue(row, match.Right.GetValue(item));
-                    }
-                }
-                table.Rows.Add(row);
             }
             return table;
-        }
-        private static bool TryAddColumn(DataTable table, PropertyDescriptor property)
-        {
-            try
-            {
-                table.Columns.Add(property.Name, property.PropertyType.GetNullableUnderlyingType());
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
         }
     }
 }
