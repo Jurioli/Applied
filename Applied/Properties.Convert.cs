@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
 using System.Linq;
 using System.Text;
 
@@ -7,41 +9,147 @@ namespace System
 {
     public static partial class Properties
     {
-        private static object Convert(object value, Type targetType, out bool done)
+        private abstract class MatchProperty
         {
-            if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            protected readonly PropertyDescriptor _left;
+            protected readonly PropertyDescriptor _right;
+            public MatchProperty(PropertyDescriptor left, PropertyDescriptor right)
             {
-                targetType = targetType.GetGenericArguments()[0];
+                _left = left;
+                _right = right;
             }
-            if (targetType.IsEnum)
+            public abstract void Apply(object source, object newValue);
+            public void ApplyDataRow<T>(DataRow row, T item)
             {
+                _left.SetValue(row, _right.GetValue(item));
+            }
+        }
+        private class EnumMatchProperty : MatchProperty
+        {
+            private readonly Type _targetType;
+            public EnumMatchProperty(PropertyDescriptor left, PropertyDescriptor right, Type targetType)
+                : base(left, right)
+            {
+                _targetType = targetType;
+            }
+            public override void Apply(object source, object newValue)
+            {
+                object value = _right.GetValue(newValue);
                 try
                 {
                     if (value is string)
                     {
-                        value = Enum.Parse(targetType, (string)value);
+                        value = Enum.Parse(_targetType, (string)value);
                     }
                     else
                     {
-                        value = Enum.ToObject(targetType, value);
+                        value = Enum.ToObject(_targetType, value);
                     }
-                    done = true;
-                    return value;
                 }
-                catch { }
-            }
-            else if (value is IConvertible)
-            {
-                try
+                catch
                 {
-                    value = System.Convert.ChangeType(value, targetType);
-                    done = true;
-                    return value;
+                    value = GetTypedNull(_left.PropertyType);
                 }
-                catch { }
+                _left.SetValue(source, value);
             }
-            done = false;
-            return value;
+        }
+        private class ConvertibleMatchProperty : MatchProperty
+        {
+            private readonly Type _targetType;
+            public ConvertibleMatchProperty(PropertyDescriptor left, PropertyDescriptor right, Type targetType)
+                : base(left, right)
+            {
+                _targetType = targetType;
+            }
+            public override void Apply(object source, object newValue)
+            {
+                object value = _right.GetValue(newValue);
+                if (value is IConvertible)
+                {
+                    try
+                    {
+                        value = Convert.ChangeType(value, _targetType);
+                    }
+                    catch
+                    {
+                        value = GetTypedNull(_left.PropertyType);
+                    }
+                }
+                else
+                {
+                    value = GetTypedNull(_left.PropertyType);
+                }
+                _left.SetValue(source, value);
+            }
+        }
+        private class ValueTypeMatchProperty : MatchProperty
+        {
+            public ValueTypeMatchProperty(PropertyDescriptor left, PropertyDescriptor right)
+                : base(left, right)
+            {
+
+            }
+            public override void Apply(object source, object newValue)
+            {
+                object value = _right.GetValue(newValue);
+                if (value == null)
+                {
+                    value = GetTypedNull(_left.PropertyType);
+                }
+                _left.SetValue(source, value);
+            }
+        }
+        private class DefaultMatchProperty : MatchProperty
+        {
+            public DefaultMatchProperty(PropertyDescriptor left, PropertyDescriptor right)
+                : base(left, right)
+            {
+
+            }
+            public override void Apply(object source, object newValue)
+            {
+                object value = _right.GetValue(newValue);
+                _left.SetValue(source, value);
+            }
+        }
+        private static MatchProperty GetMatchProperty(PropertyDescriptor left, PropertyDescriptor right, bool valueType)
+        {
+            Type leftType = left.PropertyType;
+            Type rightType = right.PropertyType;
+            if (leftType != rightType)
+            {
+                if (leftType.IsGenericType && leftType.GetGenericTypeDefinition() == typeof(Nullable<>))
+                {
+                    Type type = leftType.GetGenericArguments()[0];
+                    if (type != rightType)
+                    {
+                        if (type.IsEnum)
+                        {
+                            return new EnumMatchProperty(left, right, type);
+                        }
+                        else
+                        {
+                            return new ConvertibleMatchProperty(left, right, type);
+                        }
+                    }
+                }
+                else
+                {
+                    if (leftType.IsEnum)
+                    {
+                        return new EnumMatchProperty(left, right, leftType);
+                    }
+                    else
+                    {
+                        return new ConvertibleMatchProperty(left, right, leftType);
+                    }
+                }
+            }
+            if (valueType && leftType.IsValueType)
+            {
+                return new ValueTypeMatchProperty(left, right);
+            }
+            return new DefaultMatchProperty(left, right);
         }
     }
 }

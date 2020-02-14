@@ -41,19 +41,9 @@ namespace System
                 return null;
             }
             T entity = new T();
-            object value;
             foreach (MatchProperty match in matches)
             {
-                value = match.Right.GetValue(item);
-                if (match.Left.PropertyType != match.Right.PropertyType)
-                {
-                    value = Convert(value, match.Left.PropertyType, out bool done);
-                    if (!done)
-                    {
-                        value = GetTypedNull(match.Left.PropertyType);
-                    }
-                }
-                match.Left.SetValue(entity, value);
+                match.Apply(entity, item);
             }
             return entity;
         }

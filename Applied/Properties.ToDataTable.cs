@@ -54,7 +54,7 @@ namespace System
             {
                 foreach (MatchProperty match in matches)
                 {
-                    match.Left.SetValue(row, match.Right.GetValue(item));
+                    match.ApplyDataRow(row, item);
                 }
             }
             table.Rows.Add(row);

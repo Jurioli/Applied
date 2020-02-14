@@ -14,7 +14,7 @@ namespace System.Applied
     {
         private delegate PropertyInfo PropertyGetter(PropertyDescriptor property);
         private static readonly PropertyGetter propertyGetter;
-        private static readonly Dictionary<Type, Func<object>> defaultMethodDictionary;
+        private static readonly Dictionary<int, Func<object>> defaultMethodDictionary;
         static ComponentOperator()
         {
             try
@@ -31,7 +31,7 @@ namespace System.Applied
             {
                 propertyGetter = new PropertyGetter(p => null);
             }
-            defaultMethodDictionary = new Dictionary<Type, Func<object>>();
+            defaultMethodDictionary = new Dictionary<int, Func<object>>();
         }
         public static PropertyInfo GetPropertyInfo(PropertyDescriptor property)
         {
@@ -161,14 +161,16 @@ namespace System.Applied
         }
         public static Func<object> GetTypedDefaultMethod(Type type)
         {
-            if (!defaultMethodDictionary.ContainsKey(type))
+            int hashCode = type.GetFullNameHashCode();
+            if (!defaultMethodDictionary.TryGetValue(hashCode, out Func<object> value))
             {
                 ConstantExpression DefaultExpression1 = ExpressionExtensions.Default(type);
                 UnaryExpression UnaryExpression1 = Expression.Convert(DefaultExpression1, typeof(object));
                 Expression<Func<object>> LambdaExpression1 = Expression.Lambda<Func<object>>(UnaryExpression1);
-                defaultMethodDictionary.Add(type, LambdaExpression1.Compile());
+                value = LambdaExpression1.Compile();
+                defaultMethodDictionary.Add(hashCode, value);
             }
-            return defaultMethodDictionary[type];
+            return value;
         }
     }
     internal static class ExpressionExtensions

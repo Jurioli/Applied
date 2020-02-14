@@ -8,12 +8,12 @@ namespace System
 {
     public static partial class Properties
     {
-        private static readonly Dictionary<string, MatchProperty[]> _matchesDictionary = new Dictionary<string, MatchProperty[]>();
+        private static readonly Dictionary<int, MatchProperty[]> _matchesDictionary = new Dictionary<int, MatchProperty[]>();
         private static MatchProperty[] JoinMatches<T>(PropertyDescriptorsInfo left, PropertyDescriptorsInfo right, MatchesNecessary<T> necessary, IEnumerable<T> items)
         {
             if (left.Kind == PropertyDescriptorKind.Class && right.Kind == PropertyDescriptorKind.Class)
             {
-                string key = left.Type.GetFullName() + "#" + right.Type.GetFullName();
+                int key = GetFullNameHashCode(left.Type, right.Type);
                 if (!_matchesDictionary.TryGetValue(key, out MatchProperty[] matches))
                 {
                     lock (_matchesDictionary)
@@ -21,7 +21,7 @@ namespace System
                         if (!_matchesDictionary.TryGetValue(key, out matches))
                         {
                             necessary.LoadProperties(items);
-                            matches = JoinMatches(left, right).ToArray();
+                            matches = JoinMatches(left, right, false, false).ToArray();
                             _matchesDictionary.Add(key, matches);
                         }
                     }
@@ -35,10 +35,12 @@ namespace System
                 {
                     left.ConcatDictionaryProperties(right.Properties);
                 }
-                return JoinMatches(left, right).ToArray();
+                bool ignoreCaseName = right.Kind == PropertyDescriptorKind.DataRow;
+                bool valueType = left.Kind != PropertyDescriptorKind.DataRow && right.Kind == PropertyDescriptorKind.DataRow;
+                return JoinMatches(left, right, ignoreCaseName, valueType).ToArray();
             }
         }
-        private static IEnumerable<MatchProperty> JoinMatches(PropertyDescriptorsInfo left, PropertyDescriptorsInfo right)
+        private static IEnumerable<MatchProperty> JoinMatches(PropertyDescriptorsInfo left, PropertyDescriptorsInfo right, bool ignoreCaseName, bool valueType)
         {
             PropertyKey[] rightKeys = new PropertyKey[right.Properties.Length];
             List<int> list = new List<int>();
@@ -47,19 +49,53 @@ namespace System
                 rightKeys[i] = GetPropertyKey(right.Properties[i]);
                 list.Add(i);
             }
-            foreach (PropertyDescriptor property in left.Properties)
+            if (!ignoreCaseName)
             {
-                if (!property.IsReadOnly)
+                foreach (PropertyDescriptor property in left.Properties)
                 {
-                    PropertyKey key = GetPropertyKey(property);
-                    for (int i = 0; i < list.Count; i++)
+                    if (!property.IsReadOnly)
                     {
-                        int index = list[i];
-                        if (ComparePropertyKey(rightKeys[index], key))
+                        PropertyKey key = GetPropertyKey(property);
+                        for (int i = 0; i < list.Count; i++)
                         {
-                            list.Remove(index);
-                            yield return GetMatchProperty(property, right.Properties[index]);
-                            break;
+                            int index = list[i];
+                            if (ComparePropertyKey(rightKeys[index], key))
+                            {
+                                list.Remove(index);
+                                yield return GetMatchProperty(property, right.Properties[index], valueType);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (PropertyDescriptor property in left.Properties)
+                {
+                    if (!property.IsReadOnly)
+                    {
+                        PropertyKey key = GetPropertyKey(property);
+                        int ignoreCaseIndex = -1;
+                        for (int i = 0; i < list.Count; i++)
+                        {
+                            int index = list[i];
+                            if (ComparePropertyKey(rightKeys[index], key))
+                            {
+                                ignoreCaseIndex = -1;
+                                list.Remove(index);
+                                yield return GetMatchProperty(property, right.Properties[index], valueType);
+                                break;
+                            }
+                            if (ignoreCaseIndex == -1 && ComparePropertyKeyIgnoreCase(rightKeys[index], key))
+                            {
+                                ignoreCaseIndex = index;
+                            }
+                        }
+                        if (ignoreCaseIndex != -1)
+                        {
+                            list.Remove(ignoreCaseIndex);
+                            yield return GetMatchProperty(property, right.Properties[ignoreCaseIndex], valueType);
                         }
                     }
                 }
@@ -69,18 +105,13 @@ namespace System
         {
             return new PropertyKey() { Name = property.Name, Type = GetMatchType(property.PropertyType) };
         }
-        private static MatchProperty GetMatchProperty(PropertyDescriptor left, PropertyDescriptor right)
-        {
-            return new MatchProperty() { Left = left, Right = right };
-        }
         private static bool ComparePropertyKey(PropertyKey x, PropertyKey y)
         {
             return x.Name == y.Name && (x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type));
         }
-        private class MatchProperty
+        private static bool ComparePropertyKeyIgnoreCase(PropertyKey x, PropertyKey y)
         {
-            public PropertyDescriptor Left { get; set; }
-            public PropertyDescriptor Right { get; set; }
+            return string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase) && (x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type));
         }
         private class PropertyKey
         {

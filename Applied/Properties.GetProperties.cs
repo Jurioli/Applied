@@ -10,7 +10,7 @@ namespace System
 {
     public static partial class Properties
     {
-        private static readonly Dictionary<string, PropertyDescriptor[]> _typeDescriptorDictionary = new Dictionary<string, PropertyDescriptor[]>();
+        private static readonly Dictionary<int, PropertyDescriptor[]> _typeDescriptorDictionary = new Dictionary<int, PropertyDescriptor[]>();
         public static PropertyDescriptorCollection GetProperties(this DataTable table)
         {
             return new PropertyDescriptorCollection(GetPropertyDescriptors(table));
@@ -95,15 +95,15 @@ namespace System
         }
         private static PropertyDescriptor[] GetPropertyDescriptors(Type componentType)
         {
-            string fullName = componentType.GetFullName();
-            if (!_typeDescriptorDictionary.TryGetValue(fullName, out PropertyDescriptor[] result))
+            int hashCode = componentType.GetFullNameHashCode();
+            if (!_typeDescriptorDictionary.TryGetValue(hashCode, out PropertyDescriptor[] result))
             {
                 lock (_typeDescriptorDictionary)
                 {
-                    if (!_typeDescriptorDictionary.TryGetValue(fullName, out result))
+                    if (!_typeDescriptorDictionary.TryGetValue(hashCode, out result))
                     {
                         result = GetEntityPropertyDescriptors(componentType).ToArray();
-                        _typeDescriptorDictionary.Add(fullName, result);
+                        _typeDescriptorDictionary.Add(hashCode, result);
                     }
                 }
             }

@@ -29,19 +29,9 @@ namespace System
         }
         private static void Apply(this object source, MatchProperty[] matches, object newValue)
         {
-            object value;
             foreach (MatchProperty match in matches)
             {
-                value = match.Right.GetValue(newValue);
-                if (match.Left.PropertyType != match.Right.PropertyType)
-                {
-                    value = Convert(value, match.Left.PropertyType, out bool done);
-                    if (!done)
-                    {
-                        value = GetTypedNull(match.Left.PropertyType);
-                    }
-                }
-                match.Left.SetValue(source, value);
+                match.Apply(source, newValue);
             }
         }
         private static IEnumerable<ItemValuePair<TSource, T>> GetItemValuePairs<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
