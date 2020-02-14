@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
 
 namespace System
 {
     public static partial class Properties
     {
         private static readonly Dictionary<int, MatchProperty[]> _matchesDictionary = new Dictionary<int, MatchProperty[]>();
-        private static MatchProperty[] JoinMatches<T>(PropertyDescriptorsInfo left, PropertyDescriptorsInfo right, MatchesNecessary<T> necessary, IEnumerable<T> items)
+        private static MatchProperty[] JoinMatches<T>(PropertyDescriptorsInfo left, PropertyDescriptorsInfo right, Action<IEnumerable<T>> load, IEnumerable<T> items)
         {
             if (left.Kind == PropertyDescriptorKind.Class && right.Kind == PropertyDescriptorKind.Class)
             {
@@ -20,7 +18,7 @@ namespace System
                     {
                         if (!_matchesDictionary.TryGetValue(key, out matches))
                         {
-                            necessary.LoadProperties(items);
+                            load(items);
                             matches = JoinMatches(left, right, false, false).ToArray();
                             _matchesDictionary.Add(key, matches);
                         }
@@ -30,7 +28,7 @@ namespace System
             }
             else
             {
-                necessary.LoadProperties(items);
+                load(items);
                 if (left.Kind == PropertyDescriptorKind.Dictionary)
                 {
                     left.ConcatDictionaryProperties(right.Properties);

@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Linq;
 
 namespace System
 {
     public static partial class Properties
     {
-        private class DataRowNecessary<T> : MatchesNecessary<T>
+        private class DataRowNecessary<T> : Necessary<T, MatchProperty[]>
         {
             private readonly DataTable _table;
             private readonly PropertyDescriptorsInfo _right;
@@ -20,14 +18,14 @@ namespace System
                 _right = new PropertyDescriptorsInfo(typeof(T), this);
                 _left = new PropertyDescriptorsInfo(typeof(DataRow), PropertyDescriptorKind.DataRow);
             }
-            public override void LoadProperties(IEnumerable<T> items)
+            protected override MatchProperty[] GetReady(IEnumerable<T> items)
+            {
+                return JoinMatches(_left, _right, this.Load, items);
+            }
+            private void Load(IEnumerable<T> items)
             {
                 _right.LoadProperties(items);
                 _left.LoadDataRowProperties(_table, _right.Properties);
-            }
-            protected override MatchProperty[] GetReady(IEnumerable<T> items)
-            {
-                return JoinMatches(_left, _right, this, items);
             }
         }
         private static void LoadDataRowProperties(this PropertyDescriptorsInfo info, DataTable table, PropertyDescriptor[] properties)

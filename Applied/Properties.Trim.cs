@@ -1,18 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.ComponentModel;
+﻿using System.Applied;
 using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
+using System.Linq;
 
 namespace System
 {
     public static partial class Properties
     {
-        private class TrimNecessary : Necessary<PropertyDescriptor[]>
+        private class TrimNecessary : NecessaryFirst<PropertyDescriptor[]>
         {
-            private readonly PropertyDescriptorsInfo _info;
+            private PropertyDescriptorsInfo _info;
             public PropertyDescriptorKind Kind
             {
                 get
@@ -20,19 +19,37 @@ namespace System
                     return _info.Kind;
                 }
             }
-            public TrimNecessary(Type type)
+            protected override void First(object first)
             {
-                _info = new PropertyDescriptorsInfo(type, this);
+                _info = new PropertyDescriptorsInfo(first.GetType(), this);
             }
             protected override PropertyDescriptor[] GetReady(IEnumerable items)
             {
                 _info.LoadProperties(items);
-                return GetTrimPropertyDescriptors(_info);
+                return GetTrimPropertyDescriptors(_info.Properties).ToArray();
             }
         }
-        private static PropertyDescriptor[] GetTrimPropertyDescriptors(PropertyDescriptorsInfo info)
+        private class TrimDataRowNecessary
         {
-            return GetTrimPropertyDescriptors(info.Properties).ToArray();
+            private readonly DataTable _table;
+            private readonly Lazy<PropertyDescriptor[]> _lazy;
+            public PropertyDescriptor[] Value
+            {
+                get
+                {
+                    return _lazy.Value;
+                }
+            }
+            public TrimDataRowNecessary(DataTable table)
+            {
+                _table = table;
+                _lazy = new Lazy<PropertyDescriptor[]>(GetReady);
+            }
+            private PropertyDescriptor[] GetReady()
+            {
+                PropertyDescriptor[] properties = GetPropertyDescriptors(_table);
+                return GetTrimPropertyDescriptors(properties).ToArray();
+            }
         }
         private static IEnumerable<PropertyDescriptor> GetTrimPropertyDescriptors(PropertyDescriptor[] properties)
         {
@@ -52,7 +69,7 @@ namespace System
             }
             if (source is DataTable dataTable)
             {
-                dataTable.AsEnumerable().Trim(typeof(DataRow), trimChars);
+                dataTable.TrimDataTable(trimChars);
                 return;
             }
             string value;
@@ -68,16 +85,13 @@ namespace System
             {
                 if (source is IEnumerable items)
                 {
-                    if (TryGetEnumerableType(source.GetType(), out Type elementType))
-                    {
-                        items.Trim(elementType, trimChars);
-                    }
+                    items.TrimEnumerable(trimChars);
                 }
             }
         }
-        private static void Trim(this IEnumerable items, Type elementType, char[] trimChars)
+        private static void TrimEnumerable(this IEnumerable items, char[] trimChars)
         {
-            TrimNecessary necessary = new TrimNecessary(elementType);
+            TrimNecessary necessary = new TrimNecessary();
             foreach (object item in necessary.Each(items))
             {
                 item.Trim(necessary.Kind, necessary.Value, trimChars);
@@ -87,15 +101,46 @@ namespace System
         {
             if (source != null)
             {
-                new TSource[] { source }.Trim(typeof(TSource), trimChars);
+                Type type = source.GetType();
+                if (type.IsArray)
+                {
+                    ((IEnumerable)source).TrimEnumerable(trimChars);
+                }
+                else
+                {
+                    PropertyDescriptorsInfo info = new PropertyDescriptorsInfo(type);
+                    info.LoadProperties(new TSource[] { source });
+                    PropertyDescriptor[] properties = GetTrimPropertyDescriptors(info.Properties).ToArray();
+                    source.Trim(info.Kind, properties, trimChars);
+                }
             }
             return source;
+        }
+        private static void TrimDataRow(this DataRow row, PropertyDescriptor[] properties, char[] trimChars)
+        {
+            string value;
+            foreach (PropertyDescriptor property in properties)
+            {
+                value = (string)property.GetValue(row);
+                if (!string.IsNullOrEmpty(value))
+                {
+                    property.SetValue(row, value.Trim(trimChars));
+                }
+            }
+        }
+        private static void TrimDataTable(this DataTable table, char[] trimChars)
+        {
+            TrimDataRowNecessary necessary = new TrimDataRowNecessary(table);
+            foreach (DataRow row in table.AsEnumerable())
+            {
+                row.TrimDataRow(necessary.Value, trimChars);
+            }
         }
         public static DataTable Trim(this DataTable source, params char[] trimChars)
         {
             if (source != null)
             {
-                source.AsEnumerable().Trim(typeof(DataRow), trimChars);
+                source.TrimDataTable(trimChars);
             }
             return source;
         }

@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Data;
-using System.Linq;
-using System.Text;
 
 namespace System
 {
@@ -37,9 +33,9 @@ namespace System
                 object value = _right.GetValue(newValue);
                 try
                 {
-                    if (value is string)
+                    if (value is string str)
                     {
-                        value = Enum.Parse(_targetType, (string)value);
+                        value = Enum.Parse(_targetType, str);
                     }
                     else
                     {

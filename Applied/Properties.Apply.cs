@@ -1,30 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 
 namespace System
 {
     public static partial class Properties
     {
-        private class ApplyNecessary<TSource, T> : MatchesNecessary<ItemValuePair<TSource, T>> where TSource : class
+        private class ApplyNecessary<TSource> : NecessaryFirst<ItemValuePair<TSource>, MatchProperty[]> where TSource : class
         {
             private readonly PropertyDescriptorsInfo _left;
-            private readonly PropertyDescriptorsInfo _right;
+            private PropertyDescriptorsInfo _right;
             public ApplyNecessary()
             {
                 _left = new PropertyDescriptorsInfo(typeof(TSource), this);
-                _right = new PropertyDescriptorsInfo(typeof(T), this);
             }
-            public override void LoadProperties(IEnumerable<ItemValuePair<TSource, T>> items)
+            protected override void First(ItemValuePair<TSource> first)
+            {
+                _right = new PropertyDescriptorsInfo(first.Value.GetType(), this);
+            }
+            protected override MatchProperty[] GetReady(IEnumerable<ItemValuePair<TSource>> items)
+            {
+                return JoinMatches(_left, _right, this.Load, items);
+            }
+            private void Load(IEnumerable<ItemValuePair<TSource>> items)
             {
                 _left.LoadProperties(items.Select(a => a.Item));
                 _right.LoadProperties(items.Select(a => a.Value));
-            }
-            protected override MatchProperty[] GetReady(IEnumerable<ItemValuePair<TSource, T>> items)
-            {
-                return JoinMatches(_left, _right, this, items);
             }
         }
         private static void Apply(this object source, MatchProperty[] matches, object newValue)
@@ -34,7 +35,7 @@ namespace System
                 match.Apply(source, newValue);
             }
         }
-        private static IEnumerable<ItemValuePair<TSource, T>> GetItemValuePairs<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
+        private static IEnumerable<ItemValuePair<TSource>> GetItemValuePairs<TSource, T>(this IEnumerable<TSource> source, Func<TSource, T> getter) where TSource : class
         {
             foreach (TSource item in source)
             {
@@ -43,7 +44,7 @@ namespace System
                     T value = getter(item);
                     if (value != null)
                     {
-                        yield return new ItemValuePair<TSource, T>(item, value);
+                        yield return new ItemValuePair<TSource>(item, value);
                     }
                 }
             }
@@ -52,8 +53,8 @@ namespace System
         {
             if (source != null)
             {
-                ApplyNecessary<TSource, T> necessary = new ApplyNecessary<TSource, T>();
-                foreach (ItemValuePair<TSource, T> pair in necessary.Each(source.GetItemValuePairs(getter)))
+                ApplyNecessary<TSource> necessary = new ApplyNecessary<TSource>();
+                foreach (ItemValuePair<TSource> pair in necessary.Each(source.GetItemValuePairs(getter)))
                 {
                     pair.Item.Apply(necessary.Value, pair.Value);
                 }
@@ -76,11 +77,11 @@ namespace System
             }
             return source;
         }
-        private class ItemValuePair<TSource, T>
+        private class ItemValuePair<TSource>
         {
             public TSource Item { get; }
-            public T Value { get; }
-            public ItemValuePair(TSource item, T value)
+            public object Value { get; }
+            public ItemValuePair(TSource item, object value)
             {
                 this.Item = item;
                 this.Value = value;

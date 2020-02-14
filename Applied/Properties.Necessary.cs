@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace System
 {
@@ -12,74 +10,33 @@ namespace System
         {
             void UpdateCount(int count);
         }
-        private abstract class Necessary<TValue> : INecessary
+        private interface IMatchesNecessary<TSource>
         {
-            private int _queueCount;
-            public TValue Value { get; private set; }
+            void LoadProperties(IEnumerable<TSource> items);
+        }
+        private abstract class NecessaryBase<TValue> : INecessary
+        {
+            protected int Count { get; private set; }
+            public TValue Value { get; protected set; }
+            protected NecessaryBase(int count)
+            {
+                this.Count = count;
+            }
             public void UpdateCount(int count)
             {
-                _queueCount = Math.Max(_queueCount, count);
-            }
-            protected abstract TValue GetReady(IEnumerable items);
-            public IEnumerable Each(IEnumerable items)
-            {
-                if (_queueCount == 0)
-                {
-                    this.Value = this.GetReady(new object[0]);
-                    return items;
-                }
-                else
-                {
-                    return this.EachQueue(items);
-                }
-            }
-            private IEnumerable EachQueue(IEnumerable items)
-            {
-                bool ready = false;
-                Queue queue = new Queue();
-                this.Value = default;
-                foreach (object item in items)
-                {
-                    if (ready)
-                    {
-                        yield return item;
-                    }
-                    else
-                    {
-                        queue.Enqueue(item);
-                        if (queue.Count >= _queueCount)
-                        {
-                            this.Value = this.GetReady(queue);
-                            ready = true;
-                            while (queue.Count > 0)
-                            {
-                                yield return queue.Dequeue();
-                            }
-                        }
-                    }
-                }
-                if (!ready && queue.Count > 0)
-                {
-                    this.Value = this.GetReady(queue);
-                    while (queue.Count > 0)
-                    {
-                        yield return queue.Dequeue();
-                    }
-                }
+                this.Count = Math.Max(this.Count, count);
             }
         }
-        private abstract class Necessary<TSource, TValue> : INecessary
+        private abstract class Necessary<TSource, TValue> : NecessaryBase<TValue>
         {
-            private int _queueCount;
-            public TValue Value { get; private set; }
-            public void UpdateCount(int count)
+            public Necessary() : base(0)
             {
-                _queueCount = Math.Max(_queueCount, count);
+
             }
             protected abstract TValue GetReady(IEnumerable<TSource> items);
             public IEnumerable<TSource> Each(IEnumerable<TSource> items)
             {
-                if (_queueCount == 0)
+                if (this.Count == 0)
                 {
                     this.Value = this.GetReady(Enumerable.Empty<TSource>());
                     return items;
@@ -103,7 +60,7 @@ namespace System
                     else
                     {
                         queue.Enqueue(item);
-                        if (queue.Count >= _queueCount)
+                        if (queue.Count >= this.Count)
                         {
                             this.Value = this.GetReady(queue);
                             ready = true;
@@ -124,9 +81,99 @@ namespace System
                 }
             }
         }
-        private abstract class MatchesNecessary<TSource> : Necessary<TSource, MatchProperty[]>
+        private abstract class NecessaryFirst<TValue> : NecessaryBase<TValue>
         {
-            public abstract void LoadProperties(IEnumerable<TSource> items);
+            public NecessaryFirst() : base(1)
+            {
+
+            }
+            protected abstract void First(object first);
+            protected abstract TValue GetReady(IEnumerable items);
+            public IEnumerable Each(IEnumerable items)
+            {
+                bool ready = false;
+                Queue queue = new Queue();
+                this.Value = default;
+                foreach (object item in items)
+                {
+                    if (ready)
+                    {
+                        yield return item;
+                    }
+                    else
+                    {
+                        if (queue.Count == 0)
+                        {
+                            this.First(item);
+                        }
+                        queue.Enqueue(item);
+                        if (queue.Count >= this.Count)
+                        {
+                            this.Value = this.GetReady(queue);
+                            ready = true;
+                            while (queue.Count > 0)
+                            {
+                                yield return queue.Dequeue();
+                            }
+                        }
+                    }
+                }
+                if (!ready && queue.Count > 0)
+                {
+                    this.Value = this.GetReady(queue);
+                    while (queue.Count > 0)
+                    {
+                        yield return queue.Dequeue();
+                    }
+                }
+            }
+        }
+        private abstract class NecessaryFirst<TSource, TValue> : NecessaryBase<TValue>
+        {
+            public NecessaryFirst() : base(1)
+            {
+
+            }
+            protected abstract void First(TSource first);
+            protected abstract TValue GetReady(IEnumerable<TSource> items);
+            public IEnumerable<TSource> Each(IEnumerable<TSource> items)
+            {
+                bool ready = false;
+                Queue<TSource> queue = new Queue<TSource>();
+                this.Value = default;
+                foreach (TSource item in items)
+                {
+                    if (ready)
+                    {
+                        yield return item;
+                    }
+                    else
+                    {
+                        if (queue.Count == 0)
+                        {
+                            this.First(item);
+                        }
+                        queue.Enqueue(item);
+                        if (queue.Count >= this.Count)
+                        {
+                            this.Value = this.GetReady(queue);
+                            ready = true;
+                            while (queue.Count > 0)
+                            {
+                                yield return queue.Dequeue();
+                            }
+                        }
+                    }
+                }
+                if (!ready && queue.Count > 0)
+                {
+                    this.Value = this.GetReady(queue);
+                    while (queue.Count > 0)
+                    {
+                        yield return queue.Dequeue();
+                    }
+                }
+            }
         }
     }
 }

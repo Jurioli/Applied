@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Linq;
-using System.Text;
 
 namespace System
 {
@@ -37,6 +35,10 @@ namespace System
                 {
                     necessary.UpdateCount(16);
                 }
+            }
+            public PropertyDescriptorsInfo(Type type) : this(type, GetKind(type))
+            {
+
             }
             private static PropertyDescriptorKind GetKind(Type type)
             {

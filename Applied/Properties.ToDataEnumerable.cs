@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Collections;
-using System.ComponentModel;
+﻿using System.Collections.Generic;
 using System.Data;
 
 namespace System
 {
     public static partial class Properties
     {
-        private class EntityNecessary<TSource, T> : MatchesNecessary<TSource>
+        private class EntityNecessary<TSource, T> : Necessary<TSource, MatchProperty[]>
         {
             private readonly PropertyDescriptorsInfo _left;
             private readonly PropertyDescriptorsInfo _right;
@@ -19,14 +14,14 @@ namespace System
                 _left = new PropertyDescriptorsInfo(typeof(T), PropertyDescriptorKind.Class);
                 _right = new PropertyDescriptorsInfo(typeof(TSource), this);
             }
-            public override void LoadProperties(IEnumerable<TSource> items)
+            protected override MatchProperty[] GetReady(IEnumerable<TSource> items)
+            {
+                return JoinMatches(_left, _right, this.Load, items);
+            }
+            private void Load(IEnumerable<TSource> items)
             {
                 _left.LoadEntityProperties();
                 _right.LoadProperties(items);
-            }
-            protected override MatchProperty[] GetReady(IEnumerable<TSource> items)
-            {
-                return JoinMatches(_left, _right, this, items);
             }
         }
         private static void LoadEntityProperties(this PropertyDescriptorsInfo info)

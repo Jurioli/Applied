@@ -1,8 +1,4 @@
-﻿using System;
-using System.Applied;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Applied;
 
 namespace System
 {
@@ -65,29 +61,6 @@ namespace System
         private static int GetFullNameHashCode(Type leftType, Type rightType)
         {
             return (leftType.GetFullName() + "#" + rightType.GetFullName()).GetDeterministicHashCode();
-        }
-        private static bool TryGetEnumerableType(this Type type, out Type elementType)
-        {
-            if (type.IsArray)
-            {
-                elementType = type.GetElementType();
-                return true;
-            }
-            else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            {
-                elementType = type.GetGenericArguments()[0];
-                return true;
-            }
-            foreach (Type interfaceType in type.GetInterfaces())
-            {
-                if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                {
-                    elementType = interfaceType.GetGenericArguments()[0];
-                    return true;
-                }
-            }
-            elementType = null;
-            return false;
         }
         private static object GetTypedNull(Type type)
         {

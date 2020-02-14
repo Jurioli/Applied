@@ -1,8 +1,5 @@
-﻿using System;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Collections;
 using System.ComponentModel;
 using System.Data;
 
@@ -10,7 +7,7 @@ namespace System
 {
     public static partial class Properties
     {
-        private class DictionaryNecessary<T, TDictionary> : MatchesNecessary<T>
+        private class DictionaryNecessary<T, TDictionary> : Necessary<T, MatchProperty[]>
         {
             private readonly PropertyDescriptorsInfo _left;
             private readonly PropertyDescriptorsInfo _right;
@@ -19,14 +16,14 @@ namespace System
                 _left = new PropertyDescriptorsInfo(typeof(TDictionary), PropertyDescriptorKind.Dictionary);
                 _right = new PropertyDescriptorsInfo(typeof(T), this);
             }
-            public override void LoadProperties(IEnumerable<T> items)
+            protected override MatchProperty[] GetReady(IEnumerable<T> items)
+            {
+                return JoinMatches(_left, _right, this.Load, items);
+            }
+            private void Load(IEnumerable<T> items)
             {
                 _left.LoadDictionaryProperties();
                 _right.LoadProperties(items);
-            }
-            protected override MatchProperty[] GetReady(IEnumerable<T> items)
-            {
-                return JoinMatches(_left, _right, this, items);
             }
         }
         private static void LoadDictionaryProperties(this PropertyDescriptorsInfo info)
