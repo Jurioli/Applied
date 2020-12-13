@@ -1,5 +1,6 @@
 # Applied
 .NET Extension methods for object-object or dictionary-object or datatable-object mapping, single item mapping use [ item.Apply(()=>new { .. }); ],multiple array items mapping use [ items.Apply(a=>new { .. }); ]. 
+<br/>Extension methods for SQL Window Function in Linq, use [ items.GroupBy(a =>...).AsPartition(p=> p.OrderBy(a=>...)).Over(p=>...); ],can also be customize function.
 
 
 <pre style="background-color: #eeeeee; border: 1px solid rgb(221, 221, 221); box-sizing: border-box; color: #333333; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 15px; line-height: 22px; margin-bottom: 22px; margin-top: 22px; max-width: 100%; overflow: auto; padding: 4.5px 11px;"><code class="language-cs hljs" style="background-attachment: initial; background-clip: initial; background-image: initial; background-origin: initial; background-position: initial; background-repeat: initial; background-size: initial; border-radius: 0px; border: none; display: block; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 1em; line-height: inherit; margin: 0px; overflow-x: auto; padding: 0px; text-size-adjust: none;">    <span class="hljs-keyword" style="color: blue;">public</span> <span class="hljs-keyword" style="color: blue;">enum</span> UserEnum
@@ -50,7 +51,64 @@
     Dictionary&lt;<span class="hljs-keyword" style="color: blue;">string</span>, <span class="hljs-keyword" style="color: blue;">object</span>&gt;[] ds2 = vm1.ToDictionaries().ToArray();
     Dictionary&lt;<span class="hljs-keyword" style="color: blue;">string</span>, <span class="hljs-keyword" style="color: blue;">object</span>&gt;[] ds3 = dt1.ToDictionaries().ToArray();</code></pre>
     
+
+<pre style="background-color: #eeeeee; border: 1px solid rgb(221, 221, 221); box-sizing: border-box; color: #333333; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 15px; line-height: 22px; margin-bottom: 22px; margin-top: 22px; max-width: 100%; overflow: auto; padding: 4.5px 11px;"><code class="language-cs hljs" style="background-attachment: initial; background-clip: initial; background-image: initial; background-origin: initial; background-position: initial; background-repeat: initial; background-size: initial; border-radius: 0px; border: none; display: block; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 1em; line-height: inherit; margin: 0px; overflow-x: auto; padding: 0px; text-size-adjust: none;">    public class TestData
+    {
+        public int Year { get; set; }
+        public string Name { get; set; }
+        public decimal Value { get; set; }
+        public decimal Sum { get; set; }
+        public decimal Average { get; set; }
+        public int RowNumber { get; set; }
+        public int Ntile { get; set; }
+        public int DenseRank { get; set; }
+        public int Rank { get; set; }
+        public decimal FirstValue { get; set; }
+        public decimal LastValue { get; set; }
+        public decimal NthValue { get; set; }
+        public decimal Lead { get; set; }
+        public decimal Lag { get; set; }
+        public decimal CumeDist { get; set; }
+        public decimal PercentRank { get; set; }
+        public decimal PercentileDisc { get; set; }
+        public decimal PercentileCont { get; set; }
+        public decimal KeepDenseRankFirst { get; set; }
+        public decimal KeepDenseRankLast { get; set; }
+    }</code></pre>
     
+<pre style="background-color: #eeeeee; border: 1px solid rgb(221, 221, 221); box-sizing: border-box; color: #333333; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 15px; line-height: 22px; margin-bottom: 22px; margin-top: 22px; max-width: 100%; overflow: auto; padding: 4.5px 11px;"><code class="language-cs hljs" style="background-attachment: initial; background-clip: initial; background-image: initial; background-origin: initial; background-position: initial; background-repeat: initial; background-size: initial; border-radius: 0px; border: none; display: block; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 1em; line-height: inherit; margin: 0px; overflow-x: auto; padding: 0px; text-size-adjust: none;">    List<TestData> data = new List<TestData>();
+    data.Add(new TestData() { Year = 2019, Name = "A", Value = 111.1m });
+    data.Add(new TestData() { Year = 2019, Name = "B", Value = 333.3m });
+    data.Add(new TestData() { Year = 2019, Name = "C", Value = 333.3m });
+    data.Add(new TestData() { Year = 2019, Name = "A", Value = 222.2m });
+    data.Add(new TestData() { Year = 2019, Name = "C", Value = 444.4m });
+    data.Add(new TestData() { Year = 2019, Name = "A", Value = 222.2m });
+    data.Add(new TestData() { Year = 2019, Name = "B", Value = 333.3m });
+    data.Add(new TestData() { Year = 2019, Name = "C", Value = 555.5m });
+    data.Add(new TestData() { Year = 2020, Name = "A", Value = 111.1m });
+    data.Add(new TestData() { Year = 2020, Name = "B", Value = 333.3m });
+    data.Add(new TestData() { Year = 2020, Name = "A", Value = 222.2m });
+    data.Add(new TestData() { Year = 2020, Name = "C", Value = 333.3m });
+
+    data = data.GroupBy(a => new { a.Year }).AsPartition(p => p.OrderBy(a => a.Value).ThenBy(a => a.Name))
+    .Over(p => p.Sum(a => a.Value), (a, value) => a.Apply(() => new { Sum = value }))
+    .Over(p => p.Average(a => a.Value), (a, value) => a.Apply(() => new { Average = value }))
+    .Over(p => p.RowNumber(), (a, value) => a.Apply(() => new { RowNumber = value }))
+    .Over(p => p.Ntile(2), (a, value) => a.Apply(() => new { Ntile = value }))
+    .Over(p => p.DenseRank(), (a, value) => a.Apply(() => new { DenseRank = value }))
+    .Over(p => p.Rank(), (a, value) => a.Apply(() => new { Rank = value }))
+    .Over(p => p.FirstValue(a => a.Value), (a, value) => a.Apply(() => new { FirstValue = value }))
+    .Over(p => p.LastValue(a => a.Value), (a, value) => a.Apply(() => new { LastValue = value }))
+    .Over(p => p.NthValue(a => a.Value, 2), (a, value) => a.Apply(() => new { NthValue = value }))
+    .Over(p => p.Lead(a => a.Value), (a, value) => a.Apply(() => new { Lead = value }))
+    .Over(p => p.Lag(a => a.Value), (a, value) => a.Apply(() => new { Lag = value }))
+    .Over(p => p.CumeDist(), (a, value) => a.Apply(() => new { CumeDist = value }))
+    .Over(p => p.PercentRank(), (a, value) => a.Apply(() => new { PercentRank = value }))
+    .Over(p => p.PercentileDisc(0.5m, a => a.Value), (a, value) => a.Apply(() => new { PercentileDisc = value }))
+    .Over(p => p.PercentileCont(0.5m, a => a.Value), (a, value) => a.Apply(() => new { PercentileCont = value }))
+    .Over(p => p.KeepDenseRankFirst(g => g.Sum(a => a.Value)), (a, value) => a.Apply(() => new { KeepDenseRankFirst = value }))
+    .Over(p => p.KeepDenseRankLast(g => g.Sum(a => a.Value)), (a, value) => a.Apply(() => new { KeepDenseRankLast = value }))
+    .ToList();</code></pre>
     
 
     
