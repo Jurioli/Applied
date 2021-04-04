@@ -90,45 +90,55 @@ namespace System.Linq.WindowFunctions
     {
 
     }
-    internal class RankEnumerable<TSource> : IRankEnumerable<TSource>
+    internal abstract class LazyEnumerableBase<TSource>
     {
-        private readonly IEnumerable<TSource> _source;
         private readonly Lazy<List<TSource>> _list;
-        public Func<int[]> KeepDenseRank { get; }
-        public RankEnumerable(IEnumerable<TSource> source, Func<int[]> keepDenseRank)
-        {
-            _source = source;
-            _list = new Lazy<List<TSource>>(() => _source.ToList());
-            this.KeepDenseRank = keepDenseRank;
-        }
-        public IEnumerator<TSource> GetEnumerator()
-        {
-            return _list.Value.GetEnumerator();
-        }
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return this.GetEnumerator();
-        }
-    }
-    internal class Partitioned<TSource> : IPartitionedEnumerable<TSource>
-    {
-        private readonly IEnumerable<IRankEnumerable<TSource>> _partitions;
-        private readonly Lazy<List<IRankEnumerable<TSource>>> _list;
-        public IEnumerable<IRankEnumerable<TSource>> Partitions
+        internal protected IEnumerable<TSource> Value
         {
             get
             {
                 return _list.Value;
             }
         }
-        public Partitioned(IEnumerable<IRankEnumerable<TSource>> partitions)
+        public LazyEnumerableBase(IEnumerable<TSource> source)
         {
-            _partitions = partitions;
-            _list = new Lazy<List<IRankEnumerable<TSource>>>(() => _partitions.ToList());
+            _list = new Lazy<List<TSource>>(() => source.ToList());
+        }
+    }
+    internal class RankEnumerable<TSource> : LazyEnumerableBase<TSource>, IRankEnumerable<TSource>
+    {
+        public Func<int[]> KeepDenseRank { get; }
+        public RankEnumerable(IEnumerable<TSource> source, Func<int[]> keepDenseRank)
+            : base(source)
+        {
+            this.KeepDenseRank = keepDenseRank;
         }
         public IEnumerator<TSource> GetEnumerator()
         {
-            return _list.Value.SelectMany(a => a).GetEnumerator();
+            return this.Value.GetEnumerator();
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return this.GetEnumerator();
+        }
+    }
+    internal class Partitioned<TSource> : LazyEnumerableBase<IRankEnumerable<TSource>>, IPartitionedEnumerable<TSource>
+    {
+        public IEnumerable<IRankEnumerable<TSource>> Partitions
+        {
+            get
+            {
+                return this.Value;
+            }
+        }
+        public Partitioned(IEnumerable<IRankEnumerable<TSource>> partitions)
+            : base(partitions)
+        {
+
+        }
+        public IEnumerator<TSource> GetEnumerator()
+        {
+            return this.Value.SelectMany(a => a).GetEnumerator();
         }
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -145,13 +155,13 @@ namespace System.Linq.WindowFunctions
             Queue<TSource> queue = new Queue<TSource>();
             IElement value;
             int index = -1;
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
             int temp = 1;
             foreach (TSource element in elements)
             {
                 index += 1;
-                denseRank = deepDenseRank[index];
+                denseRank = keepDenseRank[index];
                 if (temp != denseRank)
                 {
                     temp = denseRank;

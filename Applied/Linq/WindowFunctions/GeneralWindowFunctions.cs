@@ -126,12 +126,12 @@ namespace System.Linq.WindowFunctions
             , Func<TSource, int, TResult> selector)
         {
             int index = -1;
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
             foreach (TSource element in elements)
             {
                 index += 1;
-                denseRank = deepDenseRank[index];
+                denseRank = keepDenseRank[index];
                 yield return selector(element, denseRank);
             }
         }
@@ -142,17 +142,17 @@ namespace System.Linq.WindowFunctions
             , Func<TSource, int, TResult> selector)
         {
             int index = -1;
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
             int temp = 1, dank = 1;
             foreach (TSource element in elements)
             {
                 index += 1;
-                denseRank = deepDenseRank[index];
+                denseRank = keepDenseRank[index];
                 if (temp != denseRank)
                 {
                     temp = denseRank;
-                    dank = deepDenseRank.Where(a => a < temp).Count() + 1;
+                    dank = keepDenseRank.Where(a => a < temp).Count() + 1;
                 }
                 yield return selector(element, dank);
             }
@@ -315,7 +315,7 @@ namespace System.Linq.WindowFunctions
             , Func<TSource, decimal, TResult> selector)
         {
             int index = -1;
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
             int temp = 1;
             decimal dank = 1.0m, count = elements.Count();
@@ -323,11 +323,11 @@ namespace System.Linq.WindowFunctions
             foreach (TSource element in elements)
             {
                 index += 1;
-                denseRank = deepDenseRank[index];
+                denseRank = keepDenseRank[index];
                 if (temp != denseRank)
                 {
                     temp = denseRank;
-                    dank = deepDenseRank.Where(a => a < temp).Count() + 1.0m;
+                    dank = keepDenseRank.Where(a => a < temp).Count() + 1.0m;
                     cumeDist = dank / count;
                 }
                 yield return selector(element, cumeDist);
@@ -340,7 +340,7 @@ namespace System.Linq.WindowFunctions
             , Func<TSource, decimal, TResult> selector)
         {
             int index = -1;
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
             int temp = 1;
             decimal dankMinus = 0.0m, countMinus = elements.Count() - 1.0m;
@@ -348,11 +348,11 @@ namespace System.Linq.WindowFunctions
             foreach (TSource element in elements)
             {
                 index += 1;
-                denseRank = deepDenseRank[index];
+                denseRank = keepDenseRank[index];
                 if (temp != denseRank)
                 {
                     temp = denseRank;
-                    dankMinus = deepDenseRank.Where(a => a < temp).Count();
+                    dankMinus = keepDenseRank.Where(a => a < temp).Count();
                     percentDist = dankMinus / countMinus;
                 }
                 yield return selector(element, percentDist);
@@ -379,13 +379,13 @@ namespace System.Linq.WindowFunctions
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
             , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
         {
-            int[] deepDenseRank = elements.KeepDenseRank();
+            int[] keepDenseRank = elements.KeepDenseRank();
             decimal dank = 1.0m, count = elements.Count();
             decimal cumeDist = dank / count;
             int dankMinus, index = -1;
-            foreach (int denseRank in deepDenseRank.Distinct())
+            foreach (int denseRank in keepDenseRank.Distinct())
             {
-                dankMinus = deepDenseRank.Where(a => a < denseRank).Count();
+                dankMinus = keepDenseRank.Where(a => a < denseRank).Count();
                 dank = dankMinus + 1.0m;
                 cumeDist = dank / count;
                 if (cumeDist >= _numeric)
@@ -466,9 +466,9 @@ namespace System.Linq.WindowFunctions
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
             , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
         {
-            int[] deepDenseRank = elements.KeepDenseRank();
-            int firstDenseRank = deepDenseRank[0];
-            int firstDenseRankCount = deepDenseRank.Where(a => a == firstDenseRank).Count();
+            int[] keepDenseRank = elements.KeepDenseRank();
+            int firstDenseRank = keepDenseRank[0];
+            int firstDenseRankCount = keepDenseRank.Where(a => a == firstDenseRank).Count();
             IEnumerable<TSourceBase> firstDenseRankElements = elements.Take(firstDenseRankCount).Cast<TSourceBase>();
             IElement keepDenseRankFirst = _aggregate(firstDenseRankElements);
             foreach (TSource element in elements)
@@ -491,10 +491,10 @@ namespace System.Linq.WindowFunctions
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
             , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
         {
-            int[] deepDenseRank = elements.KeepDenseRank();
-            int lastDenseRank = deepDenseRank[deepDenseRank.Length - 1];
-            int lastDenseRankCount = deepDenseRank.Where(a => a == lastDenseRank).Count();
-            IEnumerable<TSourceBase> lastDenseRankElements = elements.Skip(deepDenseRank.Length - lastDenseRankCount).Cast<TSourceBase>();
+            int[] keepDenseRank = elements.KeepDenseRank();
+            int lastDenseRank = keepDenseRank[keepDenseRank.Length - 1];
+            int lastDenseRankCount = keepDenseRank.Where(a => a == lastDenseRank).Count();
+            IEnumerable<TSourceBase> lastDenseRankElements = elements.Skip(keepDenseRank.Length - lastDenseRankCount).Cast<TSourceBase>();
             IElement keepDenseRankLast = _aggregate(lastDenseRankElements);
             foreach (TSource element in elements)
             {

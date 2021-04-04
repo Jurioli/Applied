@@ -51,6 +51,7 @@
     <Compile Include="ComponentModel\DataRowPropertyDescriptor.cs" />
     <Compile Include="ComponentModel\DictionaryPropertyDescriptor.cs" />
     <Compile Include="Linq\LambdaEqualityComparer.cs" />
+    <Compile Include="Linq\Recurse.cs" />
     <Compile Include="Linq\WindowFunctions\WindowFunction.cs" />
     <Compile Include="Linq\WindowFunctions\GeneralWindowFunctions.cs" />
     <Compile Include="Linq\WindowFunctions\KeepOrderedEnumerable.cs" />
