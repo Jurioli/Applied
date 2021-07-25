@@ -112,33 +112,20 @@ namespace System
         {
             Type leftType = left.PropertyType;
             Type rightType = right.PropertyType;
-            if (leftType != rightType)
+            if (!leftType.IsAssignableFrom(rightType))
             {
-                if (leftType.IsGenericType && leftType.GetGenericTypeDefinition() == typeof(Nullable<>))
+                if (leftType.IsValueType && leftType.IsGenericType && !leftType.IsGenericTypeDefinition
+                    && leftType.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
-                    Type type = leftType.GetGenericArguments()[0];
-                    if (type != rightType)
-                    {
-                        if (type.IsEnum)
-                        {
-                            return new EnumMatchProperty(left, right, type);
-                        }
-                        else
-                        {
-                            return new ConvertibleMatchProperty(left, right, type);
-                        }
-                    }
+                    leftType = leftType.GetGenericArguments()[0];
+                }
+                if (leftType.IsEnum)
+                {
+                    return new EnumMatchProperty(left, right, leftType);
                 }
                 else
                 {
-                    if (leftType.IsEnum)
-                    {
-                        return new EnumMatchProperty(left, right, leftType);
-                    }
-                    else
-                    {
-                        return new ConvertibleMatchProperty(left, right, leftType);
-                    }
+                    return new ConvertibleMatchProperty(left, right, leftType);
                 }
             }
             if (valueType && leftType.IsValueType)
