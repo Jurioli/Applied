@@ -20,6 +20,7 @@ namespace System
             public PropertyDescriptorKind Kind { get; private set; }
             public PropertyDescriptor[] Properties { get; set; }
             public Type DictionaryValueType { get; set; }
+            public bool[] DictionaryNullProperties { get; set; }
             public PropertyDescriptorsInfo(Type type, PropertyDescriptorKind kind)
             {
                 this.Type = type;
@@ -115,7 +116,9 @@ namespace System
                         }
                         else
                         {
-                            this.Properties = GetPropertyDescriptors(keys, dictionaries);
+                            bool[] dictionaryNullProperties;
+                            this.Properties = GetPropertyDescriptors(keys, dictionaries, out dictionaryNullProperties);
+                            this.DictionaryNullProperties = dictionaryNullProperties;
                         }
                     }
                     catch (InvalidCastException)

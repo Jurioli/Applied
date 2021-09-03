@@ -42,10 +42,21 @@ namespace System
         {
             PropertyKey[] rightKeys = new PropertyKey[right.Properties.Length];
             List<int> list = new List<int>();
-            for (int i = 0; i < rightKeys.Length; i++)
+            if (right.Kind == PropertyDescriptorKind.Dictionary && right.DictionaryNullProperties != null)
             {
-                rightKeys[i] = GetPropertyKey(right.Properties[i]);
-                list.Add(i);
+                for (int i = 0; i < rightKeys.Length; i++)
+                {
+                    rightKeys[i] = GetPropertyKey(right.Properties[i], right.DictionaryNullProperties[i]);
+                    list.Add(i);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < rightKeys.Length; i++)
+                {
+                    rightKeys[i] = GetPropertyKey(right.Properties[i]);
+                    list.Add(i);
+                }
             }
             if (!ignoreCaseName)
             {
@@ -103,18 +114,27 @@ namespace System
         {
             return new PropertyKey() { Name = property.Name, Type = GetMatchType(property.PropertyType) };
         }
+        private static PropertyKey GetPropertyKey(PropertyDescriptor property, bool valuesNull)
+        {
+            return new PropertyKey() { Name = property.Name, Type = GetMatchType(property.PropertyType), ValuesNull = valuesNull };
+        }
         private static bool ComparePropertyKey(PropertyKey x, PropertyKey y)
         {
-            return x.Name == y.Name && (x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type));
+            return x.Name == y.Name && (
+                x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type) ||
+                (x.ValuesNull && (!y.Type.IsValueType || y.Type.IsNullable())));
         }
         private static bool ComparePropertyKeyIgnoreCase(PropertyKey x, PropertyKey y)
         {
-            return string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase) && (x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type));
+            return string.Equals(x.Name, y.Name, StringComparison.OrdinalIgnoreCase) && (
+                x.Type == y.Type || y.Type == typeof(object) || y.Type.IsAssignableFrom(x.Type) ||
+                (x.ValuesNull && (!y.Type.IsValueType || y.Type.IsNullable())));
         }
         private class PropertyKey
         {
             public string Name { get; set; }
             public Type Type { get; set; }
+            public bool ValuesNull { get; set; }
         }
     }
 }

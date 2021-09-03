@@ -66,16 +66,24 @@ namespace System
         {
             return GetDictionaryPropertyDescriptors(keys, dictionaries).ToArray();
         }
+        private static PropertyDescriptor[] GetPropertyDescriptors<TDictionary>(string[] keys, TDictionary[] dictionaries, out bool[] dictionaryNullProperties)
+            where TDictionary : IDictionary
+        {
+            DictionaryPropertyDescriptor[] properties = GetDictionaryPropertyDescriptors(keys, dictionaries).ToArray();
+            dictionaryNullProperties = properties.Select(a => a.ValuesNull).ToArray();
+            return properties;
+        }
         private static IEnumerable<DictionaryPropertyDescriptor> GetDictionaryPropertyDescriptors<TDictionary>(string[] keys, TDictionary[] dictionaries)
             where TDictionary : IDictionary
         {
             foreach (string key in keys)
             {
-                Type valueType = GetDictionaryPropertyDescriptorValueType(key, dictionaries);
-                yield return new DictionaryPropertyDescriptor(key, valueType);
+                bool valuesNull;
+                Type valueType = GetDictionaryPropertyDescriptorValueType(key, dictionaries, out valuesNull);
+                yield return new DictionaryPropertyDescriptor(key, valueType, valuesNull);
             }
         }
-        private static Type GetDictionaryPropertyDescriptorValueType<TDictionary>(string key, TDictionary[] dictionaries)
+        private static Type GetDictionaryPropertyDescriptorValueType<TDictionary>(string key, TDictionary[] dictionaries, out bool valuesNull)
             where TDictionary : IDictionary
         {
             foreach (TDictionary dictionary in dictionaries)
@@ -85,10 +93,12 @@ namespace System
                     object value = dictionary[key];
                     if (value != null)
                     {
+                        valuesNull = false;
                         return value.GetType();
                     }
                 }
             }
+            valuesNull = true;
             return typeof(object);
         }
         private static PropertyDescriptor[] GetPropertyDescriptors(Type componentType)

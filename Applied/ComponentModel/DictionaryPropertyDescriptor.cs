@@ -6,6 +6,7 @@ namespace System.ComponentModel
     {
         private readonly string _key;
         private readonly Type _type;
+        private readonly bool _valuesNull;
         public override Type ComponentType
         {
             get
@@ -34,11 +35,24 @@ namespace System.ComponentModel
                 return string.Empty;
             }
         }
+        internal bool ValuesNull
+        {
+            get
+            {
+                return _valuesNull;
+            }
+        }
         public DictionaryPropertyDescriptor(string key, Type type)
-            : base(key.ToString(), null)
+            : this(key, type, false)
+        {
+
+        }
+        public DictionaryPropertyDescriptor(string key, Type type, bool valuesNull)
+            : base(key, null)
         {
             _key = key;
             _type = type;
+            _valuesNull = valuesNull;
         }
         public override bool CanResetValue(object component)
         {
