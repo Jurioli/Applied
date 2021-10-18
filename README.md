@@ -2,6 +2,7 @@
 .NET Extension methods for object-object or dictionary-object or datatable-object mapping, single item mapping use [ item.Apply(()=>new { .. }); ],multiple array items mapping use [ items.Apply(a=>new { .. }); ]. 
 <br/>Extension methods for SQL Window Function in Linq, use [ items.GroupBy(a =>...).AsPartition(p=> p.OrderBy(a=>...)).Over(p=>...); ],can also be customize function.
 
+[![NuGet version (Applied)](https://img.shields.io/nuget/v/Applied)](https://www.nuget.org/packages/Applied/)
 
 <pre style="background-color: #eeeeee; border: 1px solid rgb(221, 221, 221); box-sizing: border-box; color: #333333; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 15px; line-height: 22px; margin-bottom: 22px; margin-top: 22px; max-width: 100%; overflow: auto; padding: 4.5px 11px;"><code class="language-cs hljs" style="background-attachment: initial; background-clip: initial; background-image: initial; background-origin: initial; background-position: initial; background-repeat: initial; background-size: initial; border-radius: 0px; border: none; display: block; font-family: &quot;Source Code Pro&quot;, Consolas, Courier, monospace; font-size: 1em; line-height: inherit; margin: 0px; overflow-x: auto; padding: 0px; text-size-adjust: none;">    <span class="hljs-keyword" style="color: blue;">public</span> <span class="hljs-keyword" style="color: blue;">enum</span> UserEnum
     {
@@ -112,4 +113,3 @@
     
 
     
-<a href="https://www.nuget.org/packages/Applied/">https://www.nuget.org/packages/Applied/</a>
