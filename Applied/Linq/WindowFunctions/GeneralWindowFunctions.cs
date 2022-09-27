@@ -22,30 +22,30 @@ namespace System.Linq
         {
             return new Rank();
         }
-        public static IWindowFunction<TSource, IElement> FirstValue<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<TSource, IElement> field)
+        public static IWindowFunction<TSource, TElement> FirstValue<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<TSource, TElement> field)
         {
-            return new FirstValue<TSource, IElement>(field);
+            return new FirstValue<TSource, TElement>(field);
         }
-        public static IWindowFunction<TSource, IElement> LastValue<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<TSource, IElement> field)
+        public static IWindowFunction<TSource, TElement> LastValue<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<TSource, TElement> field)
         {
-            return new LastValue<TSource, IElement>(field);
+            return new LastValue<TSource, TElement>(field);
         }
-        public static IWindowFunction<TSource, IElement> NthValue<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<TSource, IElement> field, int offset)
+        public static IWindowFunction<TSource, TElement> NthValue<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<TSource, TElement> field, int offset)
         {
-            return new NthValue<TSource, IElement>(field, offset);
+            return new NthValue<TSource, TElement>(field, offset);
         }
-        public static IWindowFunction<TSource, IElement> Lead<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<TSource, IElement> field, int offset = 1, IElement defaultValue = default(IElement))
+        public static IWindowFunction<TSource, TElement> Lead<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<TSource, TElement> field, int offset = 1, TElement defaultValue = default(TElement))
         {
-            return new Lead<TSource, IElement>(field, offset, defaultValue);
+            return new Lead<TSource, TElement>(field, offset, defaultValue);
         }
-        public static IWindowFunction<TSource, IElement> Lag<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<TSource, IElement> field, int offset = 1, IElement defaultValue = default(IElement))
+        public static IWindowFunction<TSource, TElement> Lag<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<TSource, TElement> field, int offset = 1, TElement defaultValue = default(TElement))
         {
-            return new Lag<TSource, IElement>(field, offset, defaultValue);
+            return new Lag<TSource, TElement>(field, offset, defaultValue);
         }
         public static IWindowFunction<decimal> CumeDist<TSource>(this IWindowFunctionFactory<TSource> factory)
         {
@@ -55,25 +55,25 @@ namespace System.Linq
         {
             return new PercentRank();
         }
-        public static IWindowFunction<TSource, IElement> PercentileDisc<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , decimal numeric, Func<TSource, IElement> field)
+        public static IWindowFunction<TSource, TElement> PercentileDisc<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , decimal numeric, Func<TSource, TElement> field)
         {
-            return new PercentileDisc<TSource, IElement>(numeric, field);
+            return new PercentileDisc<TSource, TElement>(numeric, field);
         }
         public static IWindowFunction<TSource, decimal?> PercentileCont<TSource>(this IWindowFunctionFactory<TSource> factory
             , decimal numeric, Func<TSource, decimal?> field)
         {
             return new PercentileCont<TSource>(numeric, field);
         }
-        public static IWindowFunction<TSource, IElement> KeepDenseRankFirst<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<IEnumerable<TSource>, IElement> aggregate)
+        public static IWindowFunction<TSource, TElement> KeepDenseRankFirst<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<IEnumerable<TSource>, TElement> aggregate)
         {
-            return new KeepDenseRankFirst<TSource, IElement>(aggregate);
+            return new KeepDenseRankFirst<TSource, TElement>(aggregate);
         }
-        public static IWindowFunction<TSource, IElement> KeepDenseRankLast<TSource, IElement>(this IWindowFunctionFactory<TSource> factory
-            , Func<IEnumerable<TSource>, IElement> aggregate)
+        public static IWindowFunction<TSource, TElement> KeepDenseRankLast<TSource, TElement>(this IWindowFunctionFactory<TSource> factory
+            , Func<IEnumerable<TSource>, TElement> aggregate)
         {
-            return new KeepDenseRankLast<TSource, IElement>(aggregate);
+            return new KeepDenseRankLast<TSource, TElement>(aggregate);
         }
     }
 }
@@ -158,10 +158,10 @@ namespace System.Linq.WindowFunctions
             }
         }
     }
-    internal class FirstValue<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class FirstValue<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<TSourceBase, IElement> _field;
-        public FirstValue(Func<TSourceBase, IElement> field)
+        private readonly Func<TSourceBase, TElement> _field;
+        public FirstValue(Func<TSourceBase, TElement> field)
         {
             if (field == null)
             {
@@ -170,20 +170,20 @@ namespace System.Linq.WindowFunctions
             _field = field;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             TSource firstElement = elements.First();
-            IElement firstValue = _field(firstElement);
+            TElement firstValue = _field(firstElement);
             foreach (TSource element in elements)
             {
                 yield return selector(element, firstValue);
             }
         }
     }
-    internal class LastValue<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class LastValue<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<TSourceBase, IElement> _field;
-        public LastValue(Func<TSourceBase, IElement> field)
+        private readonly Func<TSourceBase, TElement> _field;
+        public LastValue(Func<TSourceBase, TElement> field)
         {
             if (field == null)
             {
@@ -192,21 +192,21 @@ namespace System.Linq.WindowFunctions
             _field = field;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             TSource lastElement = elements.Last();
-            IElement lastValue = _field(lastElement);
+            TElement lastValue = _field(lastElement);
             foreach (TSource element in elements)
             {
                 yield return selector(element, lastValue);
             }
         }
     }
-    internal class NthValue<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class NthValue<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<TSourceBase, IElement> _field;
+        private readonly Func<TSourceBase, TElement> _field;
         private readonly int _offset;
-        public NthValue(Func<TSourceBase, IElement> field, int offset)
+        public NthValue(Func<TSourceBase, TElement> field, int offset)
         {
             if (field == null)
             {
@@ -220,22 +220,22 @@ namespace System.Linq.WindowFunctions
             _offset = offset;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             TSource nthElement = elements.ElementAtOrDefault(_offset - 1);
-            IElement nthValue = nthElement != null ? _field(nthElement) : default(IElement);
+            TElement nthValue = nthElement != null ? _field(nthElement) : default(TElement);
             foreach (TSource element in elements)
             {
                 yield return selector(element, nthValue);
             }
         }
     }
-    internal class Lead<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class Lead<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<TSourceBase, IElement> _field;
+        private readonly Func<TSourceBase, TElement> _field;
         private readonly int _offset;
-        private readonly IElement _defaultValue;
-        public Lead(Func<TSourceBase, IElement> field, int offset, IElement defaultValue)
+        private readonly TElement _defaultValue;
+        public Lead(Func<TSourceBase, TElement> field, int offset, TElement defaultValue)
         {
             if (field == null)
             {
@@ -250,7 +250,7 @@ namespace System.Linq.WindowFunctions
             _defaultValue = defaultValue;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             Queue<TSource> queue = new Queue<TSource>();
             foreach (TSource element in elements)
@@ -271,12 +271,12 @@ namespace System.Linq.WindowFunctions
             }
         }
     }
-    internal class Lag<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class Lag<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<TSourceBase, IElement> _field;
+        private readonly Func<TSourceBase, TElement> _field;
         private readonly int _offset;
-        private readonly IElement _defaultValue;
-        public Lag(Func<TSourceBase, IElement> field, int offset, IElement defaultValue)
+        private readonly TElement _defaultValue;
+        public Lag(Func<TSourceBase, TElement> field, int offset, TElement defaultValue)
         {
             if (field == null)
             {
@@ -291,9 +291,9 @@ namespace System.Linq.WindowFunctions
             _defaultValue = defaultValue;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
-            Queue<IElement> queue = new Queue<IElement>();
+            Queue<TElement> queue = new Queue<TElement>();
             foreach (TSource element in elements)
             {
                 if (queue.Count < _offset)
@@ -359,11 +359,11 @@ namespace System.Linq.WindowFunctions
             }
         }
     }
-    internal class PercentileDisc<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class PercentileDisc<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
         private readonly decimal _numeric;
-        private readonly Func<TSourceBase, IElement> _field;
-        public PercentileDisc(decimal numeric, Func<TSourceBase, IElement> field)
+        private readonly Func<TSourceBase, TElement> _field;
+        public PercentileDisc(decimal numeric, Func<TSourceBase, TElement> field)
         {
             if (numeric < 0.0m || numeric > 1.0m)
             {
@@ -377,7 +377,7 @@ namespace System.Linq.WindowFunctions
             _field = field;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             int[] keepDenseRank = elements.KeepDenseRank();
             decimal dank = 1.0m, count = elements.Count();
@@ -394,7 +394,7 @@ namespace System.Linq.WindowFunctions
                     break;
                 }
             }
-            IElement percentileDisc = index != -1 ? _field(elements.ElementAt(index)) : default(IElement);
+            TElement percentileDisc = index != -1 ? _field(elements.ElementAt(index)) : default(TElement);
             foreach (TSource element in elements)
             {
                 yield return selector(element, percentileDisc);
@@ -452,10 +452,10 @@ namespace System.Linq.WindowFunctions
             }
         }
     }
-    internal class KeepDenseRankFirst<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class KeepDenseRankFirst<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<IEnumerable<TSourceBase>, IElement> _aggregate;
-        public KeepDenseRankFirst(Func<IEnumerable<TSourceBase>, IElement> aggregate)
+        private readonly Func<IEnumerable<TSourceBase>, TElement> _aggregate;
+        public KeepDenseRankFirst(Func<IEnumerable<TSourceBase>, TElement> aggregate)
         {
             if (aggregate == null)
             {
@@ -464,23 +464,23 @@ namespace System.Linq.WindowFunctions
             _aggregate = aggregate;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             int[] keepDenseRank = elements.KeepDenseRank();
             int firstDenseRank = keepDenseRank[0];
             int firstDenseRankCount = keepDenseRank.Where(a => a == firstDenseRank).Count();
             IEnumerable<TSourceBase> firstDenseRankElements = elements.Take(firstDenseRankCount).Cast<TSourceBase>();
-            IElement keepDenseRankFirst = _aggregate(firstDenseRankElements);
+            TElement keepDenseRankFirst = _aggregate(firstDenseRankElements);
             foreach (TSource element in elements)
             {
                 yield return selector(element, keepDenseRankFirst);
             }
         }
     }
-    internal class KeepDenseRankLast<TSourceBase, IElement> : IWindowFunction<TSourceBase, IElement>
+    internal class KeepDenseRankLast<TSourceBase, TElement> : IWindowFunction<TSourceBase, TElement>
     {
-        private readonly Func<IEnumerable<TSourceBase>, IElement> _aggregate;
-        public KeepDenseRankLast(Func<IEnumerable<TSourceBase>, IElement> aggregate)
+        private readonly Func<IEnumerable<TSourceBase>, TElement> _aggregate;
+        public KeepDenseRankLast(Func<IEnumerable<TSourceBase>, TElement> aggregate)
         {
             if (aggregate == null)
             {
@@ -489,13 +489,13 @@ namespace System.Linq.WindowFunctions
             _aggregate = aggregate;
         }
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
             int[] keepDenseRank = elements.KeepDenseRank();
             int lastDenseRank = keepDenseRank[keepDenseRank.Length - 1];
             int lastDenseRankCount = keepDenseRank.Where(a => a == lastDenseRank).Count();
             IEnumerable<TSourceBase> lastDenseRankElements = elements.Skip(keepDenseRank.Length - lastDenseRankCount).Cast<TSourceBase>();
-            IElement keepDenseRankLast = _aggregate(lastDenseRankElements);
+            TElement keepDenseRankLast = _aggregate(lastDenseRankElements);
             foreach (TSource element in elements)
             {
                 yield return selector(element, keepDenseRankLast);

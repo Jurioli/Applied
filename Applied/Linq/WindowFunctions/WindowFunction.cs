@@ -1,6 +1,7 @@
 ﻿using System.Applied;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Linq.WindowFunctions;
 
 namespace System.Linq
@@ -42,18 +43,18 @@ namespace System.Linq
         {
             return new RankEnumerable<TSource>(source, keepDenseRank);
         }
-        public static IPartitionedEnumerable<TResult> Over<TSource, IElement, TResult>(this IPartitionedEnumerable<TSource> source
-            , Func<IEnumerable<TSource>, IElement> aggregate
-            , Func<TSource, IElement, TResult> selector)
+        public static IPartitionedEnumerable<TResult> Over<TSource, TElement, TResult>(this IPartitionedEnumerable<TSource> source
+            , Func<IEnumerable<TSource>, TElement> aggregate
+            , Func<TSource, TElement, TResult> selector)
         {
-            Lazy<AggregateFunction<IElement>> function = new Lazy<AggregateFunction<IElement>>(() => new AggregateFunction<IElement>());
+            Lazy<AggregateFunction<TElement>> function = new Lazy<AggregateFunction<TElement>>(() => new AggregateFunction<TElement>());
             return source.Over(p => function.Value.GetPartitionResults(p, aggregate, selector));
         }
-        public static IPartitionedEnumerable<TResult> Over<TSourceBase, TSource, IElement, TResult>(this IPartitionedEnumerable<TSource> source
-            , Func<IWindowFunctionFactory<TSource>, IWindowFunction<TSourceBase, IElement>> functionConstructor
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase
+        public static IPartitionedEnumerable<TResult> Over<TSourceBase, TSource, TElement, TResult>(this IPartitionedEnumerable<TSource> source
+            , Func<IWindowFunctionFactory<TSource>, IWindowFunction<TSourceBase, TElement>> functionConstructor
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase
         {
-            Lazy<IWindowFunction<TSourceBase, IElement>> function = new Lazy<IWindowFunction<TSourceBase, IElement>>(() => functionConstructor(new WindowFunctionFactory<TSource>()));
+            Lazy<IWindowFunction<TSourceBase, TElement>> function = new Lazy<IWindowFunction<TSourceBase, TElement>>(() => functionConstructor(new WindowFunctionFactory<TSource>()));
             return source.Over(p => function.Value.GetPartitionResults(p, selector));
         }
         private static IPartitionedEnumerable<TResult> Over<TSource, TResult>(this IPartitionedEnumerable<TSource> source
@@ -64,6 +65,38 @@ namespace System.Linq
                 throw new ArgumentNullException("source");
             }
             return new Partitioned<TResult>(source.Partitions.Select(p => func(p).AsRankEnumerable(p.KeepDenseRank)));
+        }
+        public static IPartitionedEnumerable<TSource> Over<TSource, TElement>(this IPartitionedEnumerable<TSource> source
+            , Func<IEnumerable<TSource>, TElement> aggregate
+            , Expression<Func<TSource, TElement>> property) where TSource : class
+        {
+            return source.Over(aggregate, SelectorOf(property));
+        }
+        public static IPartitionedEnumerable<TSource> Over<TSourceBase, TSource, TElement>(this IPartitionedEnumerable<TSource> source
+            , Func<IWindowFunctionFactory<TSource>, IWindowFunction<TSourceBase, TElement>> functionConstructor
+            , Expression<Func<TSource, TElement>> property) where TSource : class, TSourceBase
+        {
+            return source.Over(functionConstructor, SelectorOf(property));
+        }
+        private static Func<TSource, TElement, TSource> SelectorOf<TSource, TElement>(Expression<Func<TSource, TElement>> property) where TSource : class
+        {
+            string[] properties = new string[] { GetPropertyName(property) };
+            return (a, value) => a.Apply(() => properties.ToDictionary(n => n, n => value));
+        }
+        private static string GetPropertyName<TSource, TElement>(Expression<Func<TSource, TElement>> property)
+        {
+            if (property.Body is MemberExpression memberExpr1)
+            {
+                return memberExpr1.Member.Name;
+            }
+            else if (property.Body is UnaryExpression unaryExpr && unaryExpr.Operand is MemberExpression memberExpr2)
+            {
+                return memberExpr2.Member.Name;
+            }
+            else
+            {
+                throw new ArgumentException("property");
+            }
         }
     }
 }
@@ -81,12 +114,12 @@ namespace System.Linq.WindowFunctions
     {
 
     }
-    public interface IWindowFunction<TSourceBase, IElement>
+    public interface IWindowFunction<TSourceBase, TElement>
     {
         IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<TSource, IElement, TResult> selector) where TSource : TSourceBase;
+            , Func<TSource, TElement, TResult> selector) where TSource : TSourceBase;
     }
-    public interface IWindowFunction<IElement> : IWindowFunction<object, IElement>
+    public interface IWindowFunction<TElement> : IWindowFunction<object, TElement>
     {
 
     }
@@ -145,15 +178,15 @@ namespace System.Linq.WindowFunctions
             return this.GetEnumerator();
         }
     }
-    internal class AggregateFunction<IElement>
+    internal class AggregateFunction<TElement>
     {
         public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
-            , Func<IEnumerable<TSource>, IElement> aggregate
-            , Func<TSource, IElement, TResult> selector)
+            , Func<IEnumerable<TSource>, TElement> aggregate
+            , Func<TSource, TElement, TResult> selector)
         {
             List<TSource> list = new List<TSource>();
             Queue<TSource> queue = new Queue<TSource>();
-            IElement value;
+            TElement value;
             int index = -1;
             int[] keepDenseRank = elements.KeepDenseRank();
             int denseRank;
