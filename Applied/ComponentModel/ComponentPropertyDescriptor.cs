@@ -31,8 +31,13 @@ namespace System.ComponentModel
                 return _propertyType;
             }
         }
+        private static string GetPropertyName(PropertyDescriptor property)
+        {
+            ApplyPropertyNameAttribute attribute = property.Attributes[typeof(ApplyPropertyNameAttribute)] as ApplyPropertyNameAttribute;
+            return attribute != null ? attribute.Name : property.Name;
+        }
         public ComponentPropertyDescriptor(PropertyDescriptor property)
-            : base(property.Name, null)
+            : base(GetPropertyName(property), null)
         {
             _componentType = property.ComponentType;
             _isReadOnly = property.IsReadOnly;
@@ -45,8 +50,8 @@ namespace System.ComponentModel
             }
             else
             {
-                _getter = new Lazy<Getter>(() => ComponentOperator.GetPropertyGetter(_componentType, this.Name));
-                _setter = new Lazy<Setter>(() => ComponentOperator.GetPropertySetter(_componentType, _propertyType, this.Name));
+                _getter = new Lazy<Getter>(() => ComponentOperator.GetPropertyGetter(_componentType, property.Name));
+                _setter = new Lazy<Setter>(() => ComponentOperator.GetPropertySetter(_componentType, _propertyType, property.Name));
             }
         }
         public override object GetValue(object component)

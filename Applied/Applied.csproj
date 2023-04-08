@@ -55,6 +55,7 @@
     <Compile Include="Linq\WindowFunctions\WindowFunction.cs" />
     <Compile Include="Linq\WindowFunctions\GeneralWindowFunctions.cs" />
     <Compile Include="Linq\WindowFunctions\KeepOrderedEnumerable.cs" />
+    <Compile Include="ApplyPropertyNameAttribute.cs" />
     <Compile Include="Properties.Apply.cs" />
     <Compile Include="Properties.Convert.cs" />
     <Compile Include="Properties.JoinMatches.cs" />
