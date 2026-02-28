@@ -1,5 +1,4 @@
-﻿using System.Applied;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq.WindowFunctions;
 
 namespace System.Linq
