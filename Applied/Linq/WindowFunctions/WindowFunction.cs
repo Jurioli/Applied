@@ -221,7 +221,6 @@ namespace System.Linq.WindowFunctions
             {
                 range = FrameRange.Default;
             }
-            int lastIndex = sources.Length - 1;
             Queue<TSource[]> list = new Queue<TSource[]>();
             FrameBound start = range.Start;
             FrameBound end = range.End;
