@@ -46,7 +46,7 @@ namespace System.Linq
             , Func<IEnumerable<TSource>, TElement> aggregate
             , Func<TSource, TElement, TResult> selector)
         {
-            return source.Over(aggregate, null, selector);
+            return source.Over(aggregate, FrameRange.Default, selector);
         }
         public static IPartitionedEnumerable<TResult> Over<TSource, TElement, TResult>(this IPartitionedEnumerable<TSource> source
             , Func<IEnumerable<TSource>, TElement> aggregate, FrameRange range
@@ -54,6 +54,13 @@ namespace System.Linq
         {
             Lazy<AggregateFunction<TElement>> function = new Lazy<AggregateFunction<TElement>>(() => new AggregateFunction<TElement>());
             return source.Over(p => function.Value.GetPartitionResults(p, aggregate, range, selector));
+        }
+        public static IPartitionedEnumerable<TResult> Over<TSource, TElement, TResult>(this IPartitionedEnumerable<TSource> source
+            , Func<IEnumerable<TSource>, TElement> aggregate, FrameRows rows
+            , Func<TSource, TElement, TResult> selector)
+        {
+            Lazy<AggregateFunction<TElement>> function = new Lazy<AggregateFunction<TElement>>(() => new AggregateFunction<TElement>());
+            return source.Over(p => function.Value.GetPartitionResults(p, aggregate, rows, selector));
         }
         public static IPartitionedEnumerable<TResult> Over<TSourceBase, TSource, TElement, TResult>(this IPartitionedEnumerable<TSource> source
             , Func<IWindowFunctionFactory<TSource>, IWindowFunction<TSourceBase, TElement>> functionConstructor
@@ -75,13 +82,19 @@ namespace System.Linq
             , Func<IEnumerable<TSource>, TElement> aggregate
             , Expression<Func<TSource, TElement>> property) where TSource : class
         {
-            return source.Over(aggregate, null, SelectorOf(property));
+            return source.Over(aggregate, FrameRange.Default, SelectorOf(property));
         }
         public static IPartitionedEnumerable<TSource> Over<TSource, TElement>(this IPartitionedEnumerable<TSource> source
             , Func<IEnumerable<TSource>, TElement> aggregate, FrameRange range
             , Expression<Func<TSource, TElement>> property) where TSource : class
         {
             return source.Over(aggregate, range, SelectorOf(property));
+        }
+        public static IPartitionedEnumerable<TSource> Over<TSource, TElement>(this IPartitionedEnumerable<TSource> source
+            , Func<IEnumerable<TSource>, TElement> aggregate, FrameRows rows
+            , Expression<Func<TSource, TElement>> property) where TSource : class
+        {
+            return source.Over(aggregate, rows, SelectorOf(property));
         }
         public static IPartitionedEnumerable<TSource> Over<TSourceBase, TSource, TElement>(this IPartitionedEnumerable<TSource> source
             , Func<IWindowFunctionFactory<TSource>, IWindowFunction<TSourceBase, TElement>> functionConstructor
@@ -210,153 +223,177 @@ namespace System.Linq.WindowFunctions
             }
             int lastIndex = sources.Length - 1;
             Queue<TSource[]> list = new Queue<TSource[]>();
-            IEnumerable<TSource[]> rangeElements()
-            {
-                FrameBound start = range.Start;
-                FrameBound end = range.End;
-                bool startUnbounded = start.IsUnbounded(out int startOffset);
-                bool endUnbounded = end.IsUnbounded(out int endOffset);
-                int startIndex = startUnbounded ? start.UnboundedIndex(lastIndex, startOffset) : 0;
-                int endIndex = endUnbounded ? end.UnboundedIndex(lastIndex, endOffset) : lastIndex;
-                if ((startUnbounded ? startIndex > lastIndex : startOffset > endIndex) ||
-                    (endUnbounded ? endIndex < 0 : (lastIndex + endOffset) < startIndex) ||
-                    (startUnbounded && endUnbounded && startIndex > endIndex) ||
-                    (!startUnbounded && !endUnbounded && startOffset > endOffset))
-                {
-                    foreach (TSource[] item in sources)
-                    {
-                        yield return item;
-                    }
-                }
-                else
-                {
-                    Queue<TSource[]> queue1 = new Queue<TSource[]>();
-                    int index1;
-                    if (endUnbounded)
-                    {
-                        index1 = -1;
-                        if (startUnbounded)
-                        {
-                            foreach (TSource[] item in sources)
-                            {
-                                queue1.Enqueue(item);
-                                index1 += 1;
-                                if (index1 >= startIndex && index1 <= endIndex)
-                                {
-                                    list.Enqueue(item);
-                                }
-                            }
-                            while (queue1.Count > 0)
-                            {
-                                yield return queue1.Dequeue();
-                            }
-                        }
-                        else
-                        {
-                            int index3 = startOffset < 0 ? -1 + startOffset : -1;
-                            foreach (TSource[] item in sources)
-                            {
-                                queue1.Enqueue(item);
-                                index1 += 1;
-                                if (index1 >= startOffset && index1 <= endIndex)
-                                {
-                                    list.Enqueue(item);
-                                }
-                            }
-                            while (queue1.Count > 0)
-                            {
-                                yield return queue1.Dequeue();
-                                index3 += 1;
-                                if (index3 > -1 && list.Count > 0)
-                                {
-                                    _ = list.Dequeue();
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Queue<TSource[]> queue2 = new Queue<TSource[]>();
-                        int index2;
-                        if (endOffset < 0)
-                        {
-                            index1 = -1 + endOffset;
-                            index2 = -1;
-                        }
-                        else
-                        {
-                            index1 = -1;
-                            index2 = -1 - endOffset;
-                        }
-                        if (startUnbounded)
-                        {
-                            foreach (TSource[] item in sources)
-                            {
-                                queue1.Enqueue(item);
-                                queue2.Enqueue(item);
-                                index1 += 1;
-                                index2 += 1;
-                                if (index1 > -1)
-                                {
-                                    TSource[] element1 = queue2.Dequeue();
-                                    if (index1 >= startIndex)
-                                    {
-                                        list.Enqueue(element1);
-                                    }
-                                }
-                                if (index2 > -1)
-                                {
-                                    yield return queue1.Dequeue();
-                                }
-                            }
-                            while (queue1.Count > 0)
-                            {
-                                yield return queue1.Dequeue();
-                            }
-                        }
-                        else
-                        {
-                            int index3 = startOffset < 0 ? -1 + startOffset : -1;
-                            foreach (TSource[] item in sources)
-                            {
-                                queue1.Enqueue(item);
-                                queue2.Enqueue(item);
-                                index1 += 1;
-                                index2 += 1;
-                                if (index1 > -1)
-                                {
-                                    list.Enqueue(queue2.Dequeue());
-                                }
-                                if (index2 > -1)
-                                {
-                                    yield return queue1.Dequeue();
-                                    index3 += 1;
-                                    if (index3 > -1 && list.Count > 0)
-                                    {
-                                        _ = list.Dequeue();
-                                    }
-                                }
-                            }
-                            while (queue1.Count > 0)
-                            {
-                                yield return queue1.Dequeue();
-                                index3 += 1;
-                                if (index3 > -1 && list.Count > 0)
-                                {
-                                    _ = list.Dequeue();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            FrameBound start = range.Start;
+            FrameBound end = range.End;
             TElement value;
-            foreach (TSource[] item in rangeElements())
+            foreach (TSource[] item in this.FrameElements(sources, list, start, end))
             {
                 value = aggregate(list.SelectMany(a => a));
                 foreach (TSource source in item)
                 {
                     yield return selector(source, value);
+                }
+            }
+        }
+        public IEnumerable<TResult> GetPartitionResults<TSource, TResult>(IRankEnumerable<TSource> elements
+            , Func<IEnumerable<TSource>, TElement> aggregate, FrameRows rows
+            , Func<TSource, TElement, TResult> selector)
+        {
+            TSource[] sources = elements.ToArray();
+            if (sources.Length == 0)
+            {
+                yield break;
+            }
+            if (rows == null)
+            {
+                rows = FrameRows.Default;
+            }
+            Queue<TSource> list = new Queue<TSource>();
+            FrameBound start = rows.Start;
+            FrameBound end = rows.End;
+            TElement value;
+            foreach (TSource item in this.FrameElements(sources, list, start, end))
+            {
+                value = aggregate(list);
+                yield return selector(item, value);
+            }
+        }
+        private IEnumerable<TSource> FrameElements<TSource>(TSource[] sources, Queue<TSource> list, FrameBound start, FrameBound end)
+        {
+            int lastIndex = sources.Length - 1;
+            bool startUnbounded = start.IsUnbounded(out int startOffset);
+            bool endUnbounded = end.IsUnbounded(out int endOffset);
+            int startIndex = startUnbounded ? start.UnboundedIndex(lastIndex, startOffset) : 0;
+            int endIndex = endUnbounded ? end.UnboundedIndex(lastIndex, endOffset) : lastIndex;
+            if ((startUnbounded ? startIndex > lastIndex : startOffset > endIndex) ||
+                (endUnbounded ? endIndex < 0 : (lastIndex + endOffset) < startIndex) ||
+                (startUnbounded && endUnbounded && startIndex > endIndex) ||
+                (!startUnbounded && !endUnbounded && startOffset > endOffset))
+            {
+                foreach (TSource item in sources)
+                {
+                    yield return item;
+                }
+            }
+            else
+            {
+                Queue<TSource> queue1 = new Queue<TSource>();
+                int index1;
+                if (endUnbounded)
+                {
+                    index1 = -1;
+                    if (startUnbounded)
+                    {
+                        foreach (TSource item in sources)
+                        {
+                            queue1.Enqueue(item);
+                            index1 += 1;
+                            if (index1 >= startIndex && index1 <= endIndex)
+                            {
+                                list.Enqueue(item);
+                            }
+                        }
+                        while (queue1.Count > 0)
+                        {
+                            yield return queue1.Dequeue();
+                        }
+                    }
+                    else
+                    {
+                        int index3 = startOffset < 0 ? -1 + startOffset : -1;
+                        foreach (TSource item in sources)
+                        {
+                            queue1.Enqueue(item);
+                            index1 += 1;
+                            if (index1 >= startOffset && index1 <= endIndex)
+                            {
+                                list.Enqueue(item);
+                            }
+                        }
+                        while (queue1.Count > 0)
+                        {
+                            yield return queue1.Dequeue();
+                            index3 += 1;
+                            if (index3 > -1 && list.Count > 0)
+                            {
+                                _ = list.Dequeue();
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    Queue<TSource> queue2 = new Queue<TSource>();
+                    int index2;
+                    if (endOffset < 0)
+                    {
+                        index1 = -1 + endOffset;
+                        index2 = -1;
+                    }
+                    else
+                    {
+                        index1 = -1;
+                        index2 = -1 - endOffset;
+                    }
+                    if (startUnbounded)
+                    {
+                        foreach (TSource item in sources)
+                        {
+                            queue1.Enqueue(item);
+                            queue2.Enqueue(item);
+                            index1 += 1;
+                            index2 += 1;
+                            if (index1 > -1)
+                            {
+                                TSource item1 = queue2.Dequeue();
+                                if (index1 >= startIndex)
+                                {
+                                    list.Enqueue(item1);
+                                }
+                            }
+                            if (index2 > -1)
+                            {
+                                yield return queue1.Dequeue();
+                            }
+                        }
+                        while (queue1.Count > 0)
+                        {
+                            yield return queue1.Dequeue();
+                        }
+                    }
+                    else
+                    {
+                        int index3 = startOffset < 0 ? -1 + startOffset : -1;
+                        foreach (TSource item in sources)
+                        {
+                            queue1.Enqueue(item);
+                            queue2.Enqueue(item);
+                            index1 += 1;
+                            index2 += 1;
+                            if (index1 > -1)
+                            {
+                                list.Enqueue(queue2.Dequeue());
+                            }
+                            if (index2 > -1)
+                            {
+                                yield return queue1.Dequeue();
+                                index3 += 1;
+                                if (index3 > -1 && list.Count > 0)
+                                {
+                                    _ = list.Dequeue();
+                                }
+                            }
+                        }
+                        while (queue1.Count > 0)
+                        {
+                            yield return queue1.Dequeue();
+                            index3 += 1;
+                            if (index3 > -1 && list.Count > 0)
+                            {
+                                _ = list.Dequeue();
+                            }
+                        }
+                    }
                 }
             }
         }

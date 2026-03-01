@@ -28,6 +28,34 @@
             _end = end;
         }
     }
+    public sealed class FrameRows
+    {
+        internal static readonly FrameRows Default = new FrameRows(FrameBound.UnboundedPreceding, FrameBound.CurrentRow);
+        private readonly FrameBound _start, _end;
+        public FrameBound Start
+        {
+            get
+            {
+                return _start;
+            }
+        }
+        public FrameBound End
+        {
+            get
+            {
+                return _end;
+            }
+        }
+        public FrameRows(int start, int end) : this(new FrameBound(start), new FrameBound(end))
+        {
+
+        }
+        public FrameRows(FrameBound start, FrameBound end)
+        {
+            _start = start;
+            _end = end;
+        }
+    }
     public struct FrameBound
     {
         public static readonly FrameBound CurrentRow = new FrameBound(0, FrameBoundType.Preceding);
