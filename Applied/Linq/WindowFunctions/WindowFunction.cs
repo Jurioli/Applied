@@ -370,10 +370,10 @@ namespace System.Linq.WindowFunctions
                             if (index1 >= startOffset)
                             {
                                 queue2.Enqueue(item);
-                            }
-                            if (index1 > -1 && queue2.Count > 0)
-                            {
-                                list.Enqueue(queue2.Dequeue());
+                                if (index1 > -1)
+                                {
+                                    list.Enqueue(queue2.Dequeue());
+                                }
                             }
                             index2 += 1;
                             if (index2 > -1)
