@@ -341,7 +341,6 @@ namespace System.Linq.WindowFunctions
                             queue1.Enqueue(item);
                             queue2.Enqueue(item);
                             index1 += 1;
-                            index2 += 1;
                             if (index1 > -1)
                             {
                                 TSource item1 = queue2.Dequeue();
@@ -350,6 +349,7 @@ namespace System.Linq.WindowFunctions
                                     list.Enqueue(item1);
                                 }
                             }
+                            index2 += 1;
                             if (index2 > -1)
                             {
                                 yield return queue1.Dequeue();
@@ -366,13 +366,16 @@ namespace System.Linq.WindowFunctions
                         foreach (TSource item in sources)
                         {
                             queue1.Enqueue(item);
-                            queue2.Enqueue(item);
                             index1 += 1;
-                            index2 += 1;
-                            if (index1 > -1)
+                            if (index1 >= startOffset)
+                            {
+                                queue2.Enqueue(item);
+                            }
+                            if (index1 > -1 && queue2.Count > 0)
                             {
                                 list.Enqueue(queue2.Dequeue());
                             }
+                            index2 += 1;
                             if (index2 > -1)
                             {
                                 yield return queue1.Dequeue();
